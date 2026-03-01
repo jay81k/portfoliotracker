@@ -791,25 +791,33 @@ export default function PortfolioTracker() {
                     return result;
                 };
                 const headers = parseCSVLine(lines[0]);
-                const symbolIdx = headers.findIndex(h => h === 'Symbol');
-                const nameIdx = headers.findIndex(h => h === 'Name');
-                const qtyIdx = headers.findIndex(h => h === 'Qty');
-                const originalQtyIdx = headers.findIndex(h => h === 'Original Qty');
-                const entryDateIdx = headers.findIndex(h => h === 'Entry Date');
-                const entryPriceIdx = headers.findIndex(h => h === 'Entry Price');
-                const exitDateIdx = headers.findIndex(h => h === 'Exit Date');
-                const exitPriceIdx = headers.findIndex(h => h === 'Exit Price') !== -1 ? headers.findIndex(h => h === 'Exit Price') : headers.findIndex(h => h === 'Last');
-                const totalChgIdx = headers.findIndex(h => h === 'Total Chg');
-                const feesIdx = headers.findIndex(h => h === 'Fees');
-                const profitIdx = headers.findIndex(h => h === 'Profit') !== -1 ? headers.findIndex(h => h === 'Profit') : headers.findIndex(h => h === 'Total Profit');
-                const dividendIdx = headers.findIndex(h => h === 'Dividends');
-                const notesIdx = headers.findIndex(h => h === 'Notes') !== -1 ? headers.findIndex(h => h === 'Notes') : headers.findIndex(h => h === 'Log');
-                const partialExitsIdx = headers.findIndex(h => h === 'Partial Exits');
-                const partialAddsIdx = headers.findIndex(h => h === 'Partial Adds');
-                const directionIdx = headers.findIndex(h => h === 'Direction');
-                const dividendEntriesIdx = headers.findIndex(h => h === 'Dividend Entries');
+                // Case-insensitive finder with aliases for common platform column names
+                const findCol = (...names) => {
+                    for (const name of names) {
+                        const idx = headers.findIndex(h => h.replace(/[^a-z0-9]/gi, '').toLowerCase() === name.replace(/[^a-z0-9]/gi, '').toLowerCase());
+                        if (idx !== -1) return idx;
+                    }
+                    return -1;
+                };
+                const symbolIdx     = findCol('Symbol', 'Ticker', 'Stock', 'Security', 'Instrument');
+                const nameIdx       = findCol('Name', 'Description', 'Company', 'Security Name', 'Stock Name');
+                const qtyIdx        = findCol('Qty', 'Quantity', 'Shares', 'Units', 'Amount', 'Contracts', 'Size');
+                const originalQtyIdx= findCol('Original Qty', 'Original Quantity');
+                const entryDateIdx  = findCol('Entry Date', 'Buy Date', 'Open Date', 'Date', 'Trade Date', 'Purchase Date', 'Acquisition Date');
+                const entryPriceIdx = findCol('Entry Price', 'Buy Price', 'Purchase Price', 'Open Price', 'Cost', 'Price', 'Avg Price', 'Average Price', 'Cost Basis');
+                const exitDateIdx   = findCol('Exit Date', 'Sell Date', 'Close Date', 'Settlement Date');
+                const exitPriceIdx  = findCol('Exit Price', 'Sell Price', 'Close Price', 'Last', 'Market Price');
+                const totalChgIdx   = findCol('Total Chg', 'Total Change', 'Gain Loss', 'Gain/Loss', 'P&L', 'PnL');
+                const feesIdx       = findCol('Fees', 'Commission', 'Commissions', 'Fee', 'Transaction Fee');
+                const profitIdx     = findCol('Profit', 'Total Profit', 'Realized PnL', 'Realized P&L', 'Net Profit', 'Net Gain');
+                const dividendIdx   = findCol('Dividends', 'Dividend', 'Income');
+                const notesIdx      = findCol('Notes', 'Log', 'Comments', 'Memo', 'Note');
+                const partialExitsIdx    = findCol('Partial Exits');
+                const partialAddsIdx     = findCol('Partial Adds');
+                const directionIdx       = findCol('Direction', 'Side', 'Action', 'Type', 'Buy/Sell');
+                const dividendEntriesIdx = findCol('Dividend Entries');
                 if (symbolIdx === -1 || qtyIdx === -1 || entryPriceIdx === -1 || entryDateIdx === -1) {
-                    throw new Error('Missing required columns in CSV');
+                    throw new Error('Missing required columns: Symbol, Quantity, Entry Price, Entry Date (or equivalents)');
                 }
                 const parsedTrades = [];
                 for (let i = 1; i < lines.length; i++) {
@@ -885,7 +893,12 @@ export default function PortfolioTracker() {
                         partialExits,
                         partialAdds,
                         dividendEntries,
-                        direction: directionIdx !== -1 && values[directionIdx] ? values[directionIdx].trim() : 'long'
+                        direction: (() => {
+                            if (directionIdx === -1 || !values[directionIdx]) return 'long';
+                            const d = values[directionIdx].trim().toLowerCase();
+                            if (d === 'sell' || d === 'short' || d === 'sold') return 'short';
+                            return 'long';
+                        })()
                     });
                 }
                 return parsedTrades;
