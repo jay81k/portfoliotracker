@@ -3851,34 +3851,38 @@ export default function PortfolioTracker() {
                 });
 
                 // Return on Deployed Capital — split by currency
-                const usdClosedTrades = closedTrades.filter(t => !isCAD(t.symbol));
-                const cadClosedTrades = closedTrades.filter(t => isCAD(t.symbol));
-
-                const usdCostBasis = usdClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
-                const cadCostBasis = cadClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
-
-                const usdRealizedProfit = usdClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
-                const cadRealizedProfit = cadClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
-
-                const usdDividends = statsTrades.filter(t => !isCAD(t.symbol)).reduce((s, t) => {
-                    if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
-                    return s + (t.dividend || 0);
-                }, 0);
-                const cadDividends = statsTrades.filter(t => isCAD(t.symbol)).reduce((s, t) => {
-                    if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
-                    return s + (t.dividend || 0);
-                }, 0);
-                const totalDividends = usdDividends + cadDividends;
-                const hasDividendHistory = totalDividends > 0;
-
-                const rocUsd         = usdCostBasis > 0 ? (usdRealizedProfit / usdCostBasis) * 100 : null;
-                const rocUsdWithDiv  = usdCostBasis > 0 ? ((usdRealizedProfit + usdDividends) / usdCostBasis) * 100 : null;
-                const rocCad         = cadCostBasis > 0 ? (cadRealizedProfit / cadCostBasis) * 100 : null;
-                const rocCadWithDiv  = cadCostBasis > 0 ? ((cadRealizedProfit + cadDividends) / cadCostBasis) * 100 : null;
-
-                const rocPrimaryUsd  = (usdDividends > 0 && rocUsdWithDiv !== null) ? rocUsdWithDiv : rocUsd;
-                const rocPrimaryCAD  = (cadDividends > 0 && rocCadWithDiv !== null) ? rocCadWithDiv : rocCad;
-                const rocPrimary     = rocPrimaryUsd ?? rocPrimaryCAD; // for performance score compat
+                let usdClosedTrades = [], cadClosedTrades = [];
+                let usdCostBasis = 0, cadCostBasis = 0;
+                let usdRealizedProfit = 0, cadRealizedProfit = 0;
+                let usdDividends = 0, cadDividends = 0;
+                let totalDividends = 0, hasDividendHistory = false;
+                let rocUsd = null, rocUsdWithDiv = null, rocCad = null, rocCadWithDiv = null;
+                let rocPrimaryUsd = null, rocPrimaryCAD = null, rocPrimary = null;
+                try {
+                    usdClosedTrades = closedTrades.filter(t => t.symbol && !isCAD(t.symbol));
+                    cadClosedTrades = closedTrades.filter(t => t.symbol && isCAD(t.symbol));
+                    usdCostBasis = usdClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
+                    cadCostBasis = cadClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
+                    usdRealizedProfit = usdClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
+                    cadRealizedProfit = cadClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
+                    usdDividends = statsTrades.filter(t => t.symbol && !isCAD(t.symbol)).reduce((s, t) => {
+                        if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
+                        return s + (t.dividend || 0);
+                    }, 0);
+                    cadDividends = statsTrades.filter(t => t.symbol && isCAD(t.symbol)).reduce((s, t) => {
+                        if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
+                        return s + (t.dividend || 0);
+                    }, 0);
+                    totalDividends = usdDividends + cadDividends;
+                    hasDividendHistory = totalDividends > 0;
+                    rocUsd        = usdCostBasis > 0 ? (usdRealizedProfit / usdCostBasis) * 100 : null;
+                    rocUsdWithDiv = usdCostBasis > 0 ? ((usdRealizedProfit + usdDividends) / usdCostBasis) * 100 : null;
+                    rocCad        = cadCostBasis > 0 ? (cadRealizedProfit / cadCostBasis) * 100 : null;
+                    rocCadWithDiv = cadCostBasis > 0 ? ((cadRealizedProfit + cadDividends) / cadCostBasis) * 100 : null;
+                    rocPrimaryUsd = (usdDividends > 0 && rocUsdWithDiv !== null) ? rocUsdWithDiv : rocUsd;
+                    rocPrimaryCAD = (cadDividends > 0 && rocCadWithDiv !== null) ? rocCadWithDiv : rocCad;
+                    rocPrimary    = rocPrimaryUsd ?? rocPrimaryCAD;
+                } catch(e) { console.error('ROC calc error:', e); }
 
                 // ── Performance Score (computed once, used in header) ──
 
