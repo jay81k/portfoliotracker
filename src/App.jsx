@@ -150,6 +150,8 @@ export default function PortfolioTracker() {
             const [showClearConfirm, setShowClearConfirm] = useState(false);
             const [showDeletePortfolioConfirm, setShowDeletePortfolioConfirm] = useState(false);
             const [portfolioToDelete, setPortfolioToDelete] = useState(null);
+            const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, onConfirm }
+            const showConfirm = (title, message, onConfirm) => setConfirmDialog({ title, message, onConfirm });
             const [newPortfolioName, setNewPortfolioName] = useState('');
             const [editingPortfolioId, setEditingPortfolioId] = useState(null);
             const [editingPortfolioName, setEditingPortfolioName] = useState('');
@@ -944,8 +946,10 @@ export default function PortfolioTracker() {
                 resetFormData();
             };
 
-            const handleDeleteTrade = async (id) => {
-                if (confirm('Delete this trade?')) await saveTrades(tradesRef.current.filter(t => t.id !== id));
+            const handleDeleteTrade = (id) => {
+                showConfirm('Delete Trade', 'Are you sure you want to delete this trade? This cannot be undone.', async () => {
+                    await saveTrades(tradesRef.current.filter(t => t.id !== id));
+                });
             };
 
             const handleAddPartialExit = async () => {
@@ -1049,9 +1053,8 @@ export default function PortfolioTracker() {
                 setPartialExitForm({ qty: '', exitPrice: '', exitDate: new Date().toISOString().split('T')[0] });
             };
 
-            const handleDeletePartialExit = async (partialExitId) => {
-                if (!confirm('Delete this partial exit?')) return;
-                
+            const handleDeletePartialExit = (partialExitId) => {
+                showConfirm('Delete Partial Exit', 'Are you sure you want to delete this partial exit?', async () => {
                 const partialExit = editingTrade.partialExits.find(pe => pe.id === partialExitId);
                 const updatedTrade = {
                     ...editingTrade,
@@ -1066,9 +1069,8 @@ export default function PortfolioTracker() {
 
                 await saveTrades(tradesRef.current.map(t => t.id === editingTrade.id ? updatedTrade : t));
                 setEditingTrade(updatedTrade);
-            };
-
-            const handleAddPartialAdd = async () => {
+                });
+            }; = async () => {
                 if (!partialAddForm.qty || !partialAddForm.price || !partialAddForm.date) {
                     showToast("warning", "Missing Fields", "Please fill in all fields.");
                     return;
@@ -1099,8 +1101,8 @@ export default function PortfolioTracker() {
                 setPartialAddForm({ qty: '', price: '', date: new Date().toISOString().split('T')[0] });
             };
 
-            const handleDeletePartialAdd = async (partialAddId) => {
-                if (!confirm('Delete this scale-in entry? Avg cost will be recalculated.')) return;
+            const handleDeletePartialAdd = (partialAddId) => {
+                showConfirm('Delete Scale-In Entry', 'Delete this scale-in entry? Avg cost will be recalculated.', async () => {
                 const partialAdd = (editingTrade.partialAdds || []).find(pa => pa.id === partialAddId);
                 if (!partialAdd) return;
                 const currentQty = editingTrade.qty;
@@ -1120,6 +1122,7 @@ export default function PortfolioTracker() {
                 setFormData({...formData, entryPrice: prevAvgCost.toFixed(4), qty: updatedTrade.qty.toString()});
                 await saveTrades(tradesRef.current.map(t => t.id === editingTrade.id ? updatedTrade : t));
                 setEditingTrade(updatedTrade);
+                });
             };
 
             const handleEditTrade = (trade) => {
@@ -1201,14 +1204,15 @@ export default function PortfolioTracker() {
                 setDividendAddActive(false);
             };
 
-            const handleDeleteDividendEntry = async (entryId) => {
-                if (!confirm('Delete this dividend entry?')) return;
+            const handleDeleteDividendEntry = (entryId) => {
+                showConfirm('Delete Dividend Entry', 'Are you sure you want to delete this dividend entry?', async () => {
                 const newEntries = (editingTrade.dividendEntries || []).filter(e => e.id !== entryId);
                 const newTotal = parseFloat(newEntries.reduce((s, e) => s + e.amount, 0).toFixed(2));
                 const updatedTrade = { ...editingTrade, dividendEntries: newEntries, dividend: newTotal };
                 setFormData(prev => ({...prev, dividend: newTotal.toString()}));
                 await saveTrades(tradesRef.current.map(t => t.id === editingTrade.id ? updatedTrade : t));
                 setEditingTrade(updatedTrade);
+                });
             };
 
             const calculateMetrics = (tradesList, cutoffDate = null) => {
@@ -1552,7 +1556,7 @@ export default function PortfolioTracker() {
                             // Full multi-portfolio restore
                             const totalTrades = backup.portfolios.reduce((s, p) => s + p.trades.length, 0);
                             const confirmMsg = `This will replace all current portfolios with ${backup.portfolios.length} portfolio(s) and ${totalTrades} total trades from the backup (exported ${new Date(backup.exportedAt).toLocaleDateString()}).${hasBalances ? ' Account balances and bonuses will also be restored.' : ''} Continue?`;
-                            if (!window.confirm(confirmMsg)) return;
+                            showConfirm('Restore Backup', confirmMsg, async () => {
 
                             // Restore each portfolio's trades and balances
                             for (const p of backup.portfolios) {
@@ -1583,11 +1587,12 @@ export default function PortfolioTracker() {
                             setStartingBalances(loadBalancesForPortfolio(restoredActiveId));
 
                             showToast("success", "Portfolio Restored", `${backup.portfolios.length} portfolio(s) and ${totalTrades} trades restored.`);
+                            }); // end showConfirm V3
 
                         } else if (backup.trades && Array.isArray(backup.trades)) {
                             // Legacy v2 restore — single portfolio
                             const confirmMsg = `This will replace all ${trades.length} current trades with ${backup.trades.length} trades from the backup (exported ${new Date(backup.exportedAt).toLocaleDateString()}).${hasBalances ? ' Account balances and bonuses will also be restored.' : ''} Continue?`;
-                            if (!window.confirm(confirmMsg)) return;
+                            showConfirm('Restore Backup', confirmMsg, async () => {
                             const migratedTrades = backup.trades.map(trade => ({
                                 ...trade,
                                 originalQty: trade.originalQty || trade.qty,
@@ -1603,6 +1608,7 @@ export default function PortfolioTracker() {
                                 try { saveBalancesForPortfolio(activePortfolioId, backup.startingBalances); } catch(e) {}
                             }
                             showToast("success", "Portfolio Restored", `${backup.trades.length} trades restored.`);
+                            }); // end showConfirm legacy
                         } else {
                             showToast("error", "Invalid Backup", "No trades found in this file.");
                         }
@@ -2105,6 +2111,27 @@ export default function PortfolioTracker() {
             };
 
             const renderSharedModals = () => (<>
+                {confirmDialog && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: T.modalOverlay, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', zIndex: 1200 }}>
+                        <div style={{ background: T.surfaceBg, borderRadius: '8px', padding: '2rem', maxWidth: '400px', width: '100%', border: `1px solid ${T.border}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: isDark ? '#f87171' : '#dc2626' }}>⚠ {confirmDialog.title}</h3>
+                                <button onClick={() => setConfirmDialog(null)} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={20} /></button>
+                            </div>
+                            <p style={{ color: T.textSecondary, fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>{confirmDialog.message}</p>
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <button onClick={() => setConfirmDialog(null)}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.textSecondary; e.currentTarget.style.color = T.textPrimary; }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.textSecondary; }}
+                                    style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', color: T.textSecondary, cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>Cancel</button>
+                                <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = isDark ? '#991b1b' : '#fca5a5'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = isDark ? '#7f1d1d' : '#fecaca'; }}
+                                    style={{ flex: 1, padding: '0.75rem', background: isDark ? '#7f1d1d' : '#fecaca', border: `1px solid ${isDark ? '#f87171' : '#dc2626'}`, borderRadius: '5px', color: isDark ? '#fca5a5' : '#991b1b', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }}>Confirm</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {showAddTrade && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: T.modalOverlay, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', zIndex: 1000 }}>
                         <div style={{ background: T.surfaceBg, borderRadius: '8px', padding: '2rem', maxWidth: '540px', width: '100%', border: `1px solid ${T.border}`, maxHeight: '90vh', overflow: 'auto' }}>
