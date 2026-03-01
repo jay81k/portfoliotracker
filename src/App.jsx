@@ -2086,10 +2086,10 @@ export default function PortfolioTracker() {
                                                 );
                                             };
                                             return (<>
-                                                {topToday && statCard('Top of the Day', topToday.symbol, topToday.dayPct, topToday.dayPct >= 0)}
-                                                {worstToday && worstToday.symbol !== topToday?.symbol && statCard('Worst of the Day', worstToday.symbol, worstToday.dayPct, worstToday.dayPct >= 0)}
-                                                {topPerformer && statCard('Top Stock', topPerformer.symbol, topPerformer.pnlPct, topPerformer.pnlPct >= 0)}
-                                                {worstPerformer && worstPerformer.symbol !== topPerformer?.symbol && statCard('Worst Stock', worstPerformer.symbol, worstPerformer.pnlPct, worstPerformer.pnlPct >= 0)}
+                                                {topToday && statCard('Best Today', topToday.symbol, topToday.dayPct, topToday.dayPct >= 0)}
+                                                {worstToday && worstToday.symbol !== topToday?.symbol && statCard('Worst Today', worstToday.symbol, worstToday.dayPct, worstToday.dayPct >= 0)}
+                                                {topPerformer && statCard('Top Performer', topPerformer.symbol, topPerformer.pnlPct, topPerformer.pnlPct >= 0)}
+                                                {worstPerformer && worstPerformer.symbol !== topPerformer?.symbol && statCard('Worst Performer', worstPerformer.symbol, worstPerformer.pnlPct, worstPerformer.pnlPct >= 0)}
                                             </>);
                                         })()}
                                     </>
