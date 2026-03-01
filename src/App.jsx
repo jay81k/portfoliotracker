@@ -3850,17 +3850,35 @@ export default function PortfolioTracker() {
                     }
                 });
 
-                // Return on Deployed Capital
-                const totalCostBasisClosed = closedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
-                const totalRealizedProfit = closedTrades.reduce((s, t) => s + getTotalProfit(t), 0);
-                const totalDividends = statsTrades.reduce((s, t) => {
+                // Return on Deployed Capital — split by currency
+                const usdClosedTrades = closedTrades.filter(t => !isCAD(t.symbol));
+                const cadClosedTrades = closedTrades.filter(t => isCAD(t.symbol));
+
+                const usdCostBasis = usdClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
+                const cadCostBasis = cadClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
+
+                const usdRealizedProfit = usdClosedTrades.reduce((s, t) => s + getTotalProfit(t), 0);
+                const cadRealizedProfit = cadClosedTrades.reduce((s, t) => s + getTotalProfit(t), 0);
+
+                const usdDividends = statsTrades.filter(t => !isCAD(t.symbol)).reduce((s, t) => {
                     if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
                     return s + (t.dividend || 0);
                 }, 0);
+                const cadDividends = statsTrades.filter(t => isCAD(t.symbol)).reduce((s, t) => {
+                    if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
+                    return s + (t.dividend || 0);
+                }, 0);
+                const totalDividends = usdDividends + cadDividends;
                 const hasDividendHistory = totalDividends > 0;
-                const returnOnDeployed = totalCostBasisClosed > 0 ? (totalRealizedProfit / totalCostBasisClosed) * 100 : null;
-                const returnOnDeployedWithDiv = totalCostBasisClosed > 0 ? ((totalRealizedProfit + totalDividends) / totalCostBasisClosed) * 100 : null;
-                const rocPrimary = hasDividendHistory ? returnOnDeployedWithDiv : returnOnDeployed;
+
+                const rocUsd         = usdCostBasis > 0 ? (usdRealizedProfit / usdCostBasis) * 100 : null;
+                const rocUsdWithDiv  = usdCostBasis > 0 ? ((usdRealizedProfit + usdDividends) / usdCostBasis) * 100 : null;
+                const rocCad         = cadCostBasis > 0 ? (cadRealizedProfit / cadCostBasis) * 100 : null;
+                const rocCadWithDiv  = cadCostBasis > 0 ? ((cadRealizedProfit + cadDividends) / cadCostBasis) * 100 : null;
+
+                const rocPrimaryUsd  = (usdDividends > 0 && rocUsdWithDiv !== null) ? rocUsdWithDiv : rocUsd;
+                const rocPrimaryCAD  = (cadDividends > 0 && rocCadWithDiv !== null) ? rocCadWithDiv : rocCad;
+                const rocPrimary     = rocPrimaryUsd ?? rocPrimaryCAD; // for performance score compat
 
                 // ── Performance Score (computed once, used in header) ──
 
@@ -4293,16 +4311,28 @@ export default function PortfolioTracker() {
                                                         {maxDDPct > 0 && <div style={{ fontSize: '0.72rem', color: T.textMuted, marginTop: '0.25rem' }}>{maxDDPct.toFixed(1)}% of peak</div>}
                                                     </Card>
 
-                                                    <Card tip="Total realized P/L (incl. dividends where applicable) as a % of total capital deployed across all closed trades">
+                                                    <Card tip="Total realized P/L (incl. dividends where applicable) as a % of total capital deployed across all closed trades. Hover for ex-div breakdown.">
                                                         <Label>Return on Capital</Label>
-                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: rocPrimary === null ? T.textMuted : rocPrimary >= 0 ? T.green : T.red }}>
-                                                            {rocPrimary !== null ? (rocPrimary >= 0 ? '+' : '') + rocPrimary.toFixed(2) + '%' : '—'}
+                                                        <div style={{ position: 'relative' }}
+                                                            onMouseEnter={e => { const t = e.currentTarget.querySelector('.roc-exdiv'); if (t) t.style.display = 'block'; }}
+                                                            onMouseLeave={e => { const t = e.currentTarget.querySelector('.roc-exdiv'); if (t) t.style.display = 'none'; }}>
+                                                            {rocPrimaryUsd !== null ? (
+                                                                <div style={{ fontSize: '1.6rem', fontWeight: '700', color: rocPrimaryUsd >= 0 ? T.green : T.red }}>
+                                                                    {(rocPrimaryUsd >= 0 ? '+' : '') + rocPrimaryUsd.toFixed(2) + '%'}
+                                                                </div>
+                                                            ) : <div style={{ fontSize: '1.6rem', fontWeight: '700', color: T.textMuted }}>—</div>}
+                                                            {rocPrimaryCAD !== null && (
+                                                                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.78rem', fontWeight: '500', color: rocPrimaryCAD >= 0 ? T.green : T.red }}>
+                                                                    CAD {(rocPrimaryCAD >= 0 ? '+' : '') + rocPrimaryCAD.toFixed(2) + '%'}
+                                                                </div>
+                                                            )}
+                                                            {hasDividendHistory && (
+                                                                <div className="roc-exdiv" style={{ display: 'none', position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: T.surfaceBg, border: `1px solid ${T.borderStrong}`, borderRadius: '6px', padding: '6px 10px', fontSize: '0.68rem', color: T.textMuted, whiteSpace: 'nowrap', zIndex: 100, boxShadow: T.shadowMd }}>
+                                                                    {rocUsd !== null && <div>ex-div: {(rocUsd >= 0 ? '+' : '') + rocUsd.toFixed(2) + '%'}</div>}
+                                                                    {rocCad !== null && <div>CAD ex-div: {(rocCad >= 0 ? '+' : '') + rocCad.toFixed(2) + '%'}</div>}
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        {hasDividendHistory && returnOnDeployed !== null && (
-                                                            <div style={{ fontSize: '0.68rem', color: T.textMuted, marginTop: '0.4rem' }}>
-                                                                ex-div: {(returnOnDeployed >= 0 ? '+' : '') + returnOnDeployed.toFixed(2) + '%'}
-                                                            </div>
-                                                        )}
                                                     </Card>
 
                                                 </div>
