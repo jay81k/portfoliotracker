@@ -1589,6 +1589,7 @@ export default function PortfolioTracker() {
                             setStartingBalances(loadBalancesForPortfolio(restoredActiveId));
 
                             showToast("success", "Portfolio Restored", `${backup.portfolios.length} portfolio(s) and ${totalTrades} trades restored.`);
+                            await loadTrades(restoredActiveId);
                             }); // end showConfirm V3
 
                         } else if (backup.trades && Array.isArray(backup.trades)) {
@@ -1604,12 +1605,12 @@ export default function PortfolioTracker() {
                                 direction: trade.direction || 'long'
                             }));
                             await window.storage.set(`portfolio_trades_${activePortfolioId}`, JSON.stringify(migratedTrades));
-                            setTrades(migratedTrades);
                             if (hasBalances) {
                                 setStartingBalances(backup.startingBalances);
                                 try { saveBalancesForPortfolio(activePortfolioId, backup.startingBalances); } catch(e) {}
                             }
                             showToast("success", "Portfolio Restored", `${backup.trades.length} trades restored.`);
+                            await loadTrades(activePortfolioId);
                             }); // end showConfirm legacy
                         } else {
                             showToast("error", "Invalid Backup", "No trades found in this file.");
