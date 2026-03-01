@@ -1070,7 +1070,9 @@ export default function PortfolioTracker() {
                 await saveTrades(tradesRef.current.map(t => t.id === editingTrade.id ? updatedTrade : t));
                 setEditingTrade(updatedTrade);
                 });
-            }; = async () => {
+            };
+
+            const handleAddPartialAdd = async () => {
                 if (!partialAddForm.qty || !partialAddForm.price || !partialAddForm.date) {
                     showToast("warning", "Missing Fields", "Please fill in all fields.");
                     return;
