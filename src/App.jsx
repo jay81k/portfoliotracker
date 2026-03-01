@@ -2113,6 +2113,18 @@ export default function PortfolioTracker() {
             };
 
             const renderSharedModals = () => (<>
+                {calSymbolPopover && (
+                    <div onClick={e => e.stopPropagation()}
+                        style={{ position: 'fixed', top: calSymbolPopover.top ?? calSymbolPopover.rect.bottom + 6, left: calSymbolPopover.rect.left, background: isDark ? '#191919' : '#fff', border: '1px solid ' + T.borderStrong, borderRadius: '8px', padding: '0.6rem 0.75rem', zIndex: 2000, boxShadow: isDark ? '0 12px 32px rgba(0,0,0,0.7)' : '0 6px 24px rgba(0,0,0,0.14)', minWidth: '130px', maxWidth: '200px', maxHeight: '260px', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                            <span style={{ fontSize: '0.6rem', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700', fontFamily: "'DM Mono', monospace" }}>All symbols</span>
+                            <span onClick={e => { e.stopPropagation(); setCalSymbolPopover(null); }} style={{ fontSize: '0.7rem', color: T.textMuted, cursor: 'pointer', padding: '2px 5px' }}>x</span>
+                        </div>
+                        {calSymbolPopover.symbols.map((s, si) =>
+                            <div key={s} style={{ fontSize: '0.78rem', fontWeight: '600', color: T.textPrimary, fontFamily: "'DM Mono', monospace", lineHeight: '1.75', borderBottom: si < calSymbolPopover.symbols.length - 1 ? '1px solid ' + (isDark ? '#222' : '#f0f0f0') : 'none' }}>{s}</div>
+                        )}
+                    </div>
+                )}
                 {confirmDialog && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: T.modalOverlay, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', zIndex: 1200 }}>
                         <div style={{ background: T.surfaceBg, borderRadius: '8px', padding: '2rem', maxWidth: '400px', width: '100%', border: `1px solid ${T.border}` }}>
@@ -5096,18 +5108,7 @@ export default function PortfolioTracker() {
                                 onClick: e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); const popoverHeight = 260; const spaceBelow = window.innerHeight - r.bottom; const top = spaceBelow < popoverHeight && r.top > popoverHeight ? r.top - popoverHeight - 6 : r.bottom + 6; setCalSymbolPopover(isOpen ? null : { key: dateKey, symbols: symbols, rect: r, top }); },
                                 style: { fontSize: '0.68rem', fontWeight: '600', color: T.green, background: isDark ? 'rgba(0,255,136,0.08)' : 'rgba(5,150,105,0.08)', border: '1px solid ' + (isDark ? 'rgba(0,255,136,0.25)' : 'rgba(5,150,105,0.25)'), borderRadius: '4px', padding: '0.15rem 0.45rem', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none', fontFamily: GF }
                             }, '+' + overflow + ' more') : null,
-                            isOpen ? React.createElement('div', {
-                                onClick: e => e.stopPropagation(),
-                                style: { position: 'fixed', top: calSymbolPopover.top ?? calSymbolPopover.rect.bottom + 6, left: calSymbolPopover.rect.left, background: isDark ? '#191919' : '#fff', border: '1px solid ' + T.borderStrong, borderRadius: '8px', padding: '0.6rem 0.75rem', zIndex: 2000, boxShadow: isDark ? '0 12px 32px rgba(0,0,0,0.7)' : '0 6px 24px rgba(0,0,0,0.14)', minWidth: '130px', maxWidth: '200px', maxHeight: '260px', overflowY: 'auto' }
-                            },
-                                React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' } },
-                                    React.createElement('span', { style: { fontSize: '0.6rem', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700', fontFamily: GF } }, 'All symbols'),
-                                    React.createElement('span', { onClick: e => { e.stopPropagation(); setCalSymbolPopover(null); }, style: { fontSize: '0.7rem', color: T.textMuted, cursor: 'pointer', padding: '2px 5px' } }, 'x')
-                                ),
-                                symbols.map((s, si) =>
-                                    React.createElement('div', { key: s, style: { fontSize: '0.78rem', fontWeight: '600', color: T.textPrimary, fontFamily: GM, lineHeight: '1.75', borderBottom: si < symbols.length - 1 ? '1px solid ' + (isDark ? '#222' : '#f0f0f0') : 'none' } }, s)
-                                )
-                            ) : null
+                            isOpen ? null : null
                         )
                     );
                 };
