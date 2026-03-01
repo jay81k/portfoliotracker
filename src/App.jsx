@@ -3850,13 +3850,12 @@ export default function PortfolioTracker() {
                     }
                 });
 
-                // Return on Deployed Capital — split by currency
+                // Return on Capital — profit vs starting balance, matching the dashboard % figures
+                // Uses activeBalances (portfolio-mode aware) so it stays consistent with the dashboard
                 let usdClosedTrades = [], cadClosedTrades = [];
-                let usdCostBasis = 0, cadCostBasis = 0;
                 let usdRealizedProfit = 0, cadRealizedProfit = 0;
-                let usdDividends = 0, cadDividends = 0;
+                let usdCostBasis = 0, cadCostBasis = 0;
                 let totalDividends = 0, hasDividendHistory = false;
-                let rocUsd = null, rocUsdWithDiv = null, rocCad = null, rocCadWithDiv = null;
                 let rocPrimaryUsd = null, rocPrimaryCAD = null, rocPrimary = null;
                 try {
                     usdClosedTrades = closedTrades.filter(t => t.symbol && !isCAD(t.symbol));
@@ -3865,22 +3864,25 @@ export default function PortfolioTracker() {
                     cadCostBasis = cadClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
                     usdRealizedProfit = usdClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
                     cadRealizedProfit = cadClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
-                    usdDividends = usdClosedTrades.reduce((s, t) => {
-                        if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
-                        return s + (t.dividend || 0);
+                    const usdDepositsDenom = (activeBalances.depositsUsd || []).reduce((s, d) => s + (parseFloat(d.amt) || 0), 0);
+                    const cadDepositsDenom = (activeBalances.depositsCad || []).reduce((s, d) => s + (parseFloat(d.amt) || 0), 0);
+                    const usdStartBal = parseFloat(activeBalances.usd) + (activeBalances.mode === 'current' ? usdDepositsDenom : 0);
+                    const cadStartBal = parseFloat(activeBalances.cad) + (activeBalances.mode === 'current' ? cadDepositsDenom : 0);
+                    const allUsdTrades = statsTrades.filter(t => t.symbol && !isCAD(t.symbol));
+                    const allCadTrades = statsTrades.filter(t => t.symbol && isCAD(t.symbol));
+                    const calcProfit = (tradeList) => tradeList.reduce((sum, t) => {
+                        const capitalGains = t.exitDate ? getTotalProfit(t) : ((t.partialExits && t.partialExits.length > 0) ? t.partialExits.reduce((s, pe) => s + (pe.profit || 0), 0) : 0);
+                        const dividends = t.dividendEntries && t.dividendEntries.length > 0 ? t.dividendEntries.reduce((s, e) => s + e.amount, 0) : (t.dividend || 0);
+                        return sum + capitalGains + dividends;
                     }, 0);
-                    cadDividends = cadClosedTrades.reduce((s, t) => {
-                        if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
-                        return s + (t.dividend || 0);
-                    }, 0);
-                    totalDividends = usdDividends + cadDividends;
+                    const usdTotalProfit = calcProfit(allUsdTrades);
+                    const cadTotalProfit = calcProfit(allCadTrades);
+                    const usdDivs = allUsdTrades.reduce((s, t) => s + (t.dividendEntries && t.dividendEntries.length > 0 ? t.dividendEntries.reduce((ds, e) => ds + e.amount, 0) : (t.dividend || 0)), 0);
+                    const cadDivs = allCadTrades.reduce((s, t) => s + (t.dividendEntries && t.dividendEntries.length > 0 ? t.dividendEntries.reduce((ds, e) => ds + e.amount, 0) : (t.dividend || 0)), 0);
+                    totalDividends = usdDivs + cadDivs;
                     hasDividendHistory = totalDividends > 0;
-                    rocUsd        = usdCostBasis > 0 ? (usdRealizedProfit / usdCostBasis) * 100 : null;
-                    rocUsdWithDiv = usdCostBasis > 0 ? ((usdRealizedProfit + usdDividends) / usdCostBasis) * 100 : null;
-                    rocCad        = cadCostBasis > 0 ? (cadRealizedProfit / cadCostBasis) * 100 : null;
-                    rocCadWithDiv = cadCostBasis > 0 ? ((cadRealizedProfit + cadDividends) / cadCostBasis) * 100 : null;
-                    rocPrimaryUsd = (usdDividends > 0 && rocUsdWithDiv !== null) ? rocUsdWithDiv : rocUsd;
-                    rocPrimaryCAD = (cadDividends > 0 && rocCadWithDiv !== null) ? rocCadWithDiv : rocCad;
+                    rocPrimaryUsd = (!isNaN(usdStartBal) && usdStartBal > 0) ? (usdTotalProfit / usdStartBal) * 100 : null;
+                    rocPrimaryCAD = (!isNaN(cadStartBal) && cadStartBal > 0) ? (cadTotalProfit / cadStartBal) * 100 : null;
                     rocPrimary    = rocPrimaryUsd ?? rocPrimaryCAD;
                 } catch(e) { console.error('ROC calc error:', e); }
 
@@ -3960,9 +3962,12 @@ export default function PortfolioTracker() {
                 const _rocScoreCAD = _rocScore(rocPrimaryCAD);
                 const _psScoreROC = (() => {
                     if (_rocScoreUsd !== null && _rocScoreCAD !== null) {
-                        const totalBasis = usdCostBasis + cadCostBasis;
-                        return totalBasis > 0
-                            ? (_rocScoreUsd * usdCostBasis + _rocScoreCAD * cadCostBasis) / totalBasis
+                        // Weight by starting balance size so the larger account has more influence
+                        const usdBal = parseFloat(activeBalances.usd) || 0;
+                        const cadBal = parseFloat(activeBalances.cad) || 0;
+                        const totalBal = usdBal + cadBal;
+                        return totalBal > 0
+                            ? (_rocScoreUsd * usdBal + _rocScoreCAD * cadBal) / totalBal
                             : (_rocScoreUsd + _rocScoreCAD) / 2;
                     }
                     return _rocScoreUsd ?? _rocScoreCAD;
@@ -4327,7 +4332,7 @@ export default function PortfolioTracker() {
                                                         {maxDDPct > 0 && <div style={{ fontSize: '0.72rem', color: T.textMuted, marginTop: '0.25rem' }}>{maxDDPct.toFixed(1)}% of peak</div>}
                                                     </Card>
 
-                                                    <Card tip={hasDividendHistory ? `ex-div: ${rocUsd !== null ? (rocUsd >= 0 ? '+' : '') + rocUsd.toFixed(2) + '%' : '—'}${rocCad !== null ? ' | CAD ex-div: ' + (rocCad >= 0 ? '+' : '') + rocCad.toFixed(2) + '%' : ''}` : "Total realized P/L as a % of total capital deployed across all closed trades"}>
+                                                    <Card tip="Total profit (capital gains + dividends) as a % of your starting account balance — matches the return % shown on the dashboard">
                                                         <Label>Return on Capital</Label>
                                                         {rocPrimaryUsd !== null ? (
                                                             <div style={{ fontSize: '1.6rem', fontWeight: '700', color: rocPrimaryUsd >= 0 ? T.green : T.red }}>
