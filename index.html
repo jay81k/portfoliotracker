@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Tracker</title>
+        <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+      document.fonts.ready.then(() => {
+        if (window.Chart) {
+          Chart.defaults.font.family = "'DM Mono', monospace";
+          Chart.defaults.font.weight = '300';
+        }
+      });
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+        <!-- ─── Risk Calculator (embedded) ────────────────────── -->
+    <div id="rc-wrap">
+      <div class="rc-overlay" id="rc-overlay">
+        <div class="rc-modal" id="rc-modal">
+          <div class="rc-header">
+            <div class="rc-header-left"></div>
+            <div class="rc-header-title">Risk Calculator</div>
+            <div class="rc-header-right">
+              <div class="ls-pill">
+                <button class="ls-btn active-long" id="btn-long"  onclick="setDir('long')">↑ Long</button>
+                <button class="ls-btn"             id="btn-short" onclick="setDir('short')">↓ Short</button>
+              </div>
+              <div style="width:1px;height:20px;background:var(--rc-border);margin:0 8px;flex-shrink:0"></div>
+              <button class="rc-close" onclick="closeCalc()">✕</button>
+            </div>
+          </div>
+          <div class="rc-body rc-body-3col" id="rc-body">
+            <div class="rc-left" id="rc-left">
+              <div class="symbol-block">
+                <div class="rc-field-label" style="margin-bottom:6px">Symbol</div>
+                <div class="symbol-row">
+                  <div class="symbol-input-wrap">
+                    <input class="symbol-input" type="text" id="rc-symbol" placeholder="e.g. AAPL"
+                      oninput="this.value=this.value.toUpperCase()"
+                      onkeydown="if(event.key==='Enter')fetchPrice()" />
+                  </div>
+                  <button class="fetch-btn" id="fetch-btn" onclick="fetchPrice()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="price-display" id="price-display">
+                  <div class="price-display-left">
+                    <div class="price-display-label">Price</div>
+                    <div class="price-display-value placeholder" id="price-val">$0.00</div>
+                  </div>
+                  <div class="price-display-right" id="price-right" style="display:none">
+                    <span class="price-change" id="price-change"></span>
+                    <button class="use-as-entry-btn" onclick="useAsEntry()">↓ Use as Entry</button>
+                  </div>
+                </div>
+                <div class="price-meta" id="price-meta" style="display:none">
+                  <span class="price-meta-dot"></span>
+                  <span id="price-meta-text">Live</span>
+                </div>
+              </div>
+              <div class="rc-section">Position Sizing</div>
+              <div class="mode-toggle">
+                <button class="mode-btn active" id="mode-account" onclick="setSizingMode('account')">Account-Based</button>
+                <button class="mode-btn"        id="mode-fixed"   onclick="setSizingMode('fixed')">Fixed Size</button>
+              </div>
+              <div class="account-fields" id="account-fields">
+                <div class="rc-field">
+                  <div class="rc-field-label">Account Size</div>
+                  <div class="rc-input-row"><div class="rc-input-wrap"><span class="rc-prefix">$</span>
+                    <input class="rc-input" type="number" id="accountSize" value="1000000" oninput="onAccountSize()" /></div></div>
+                </div>
+                <div class="rc-field">
+                  <div class="rc-field-label">Risk Per Position</div>
+                  <div class="rc-input-row">
+                    <div class="rc-input-wrap"><span class="rc-prefix">$</span>
+                      <input class="rc-input" type="number" id="riskDollar" value="10000" oninput="onRiskDollar()" /></div>
+                    <div class="rc-pct-wrap">
+                      <input class="rc-pct-input" type="number" id="riskPct" value="1" step="0.1" oninput="onRiskPct()" />
+                      <span class="rc-pct-suffix">%</span></div>
+                  </div>
+                </div>
+                <div class="rc-field">
+                  <div class="rc-field-label">Max Position Size Cap</div>
+                  <div class="rc-input-row">
+                    <div class="rc-input-wrap"><span class="rc-prefix">$</span>
+                      <input class="rc-input" type="number" id="maxPos" value="250000" oninput="onMaxDollar()" /></div>
+                    <div class="rc-pct-wrap">
+                      <input class="rc-pct-input" type="number" id="maxPosPct" value="25" step="1" oninput="onMaxPct()" />
+                      <span class="rc-pct-suffix">%</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="fixed-field hidden" id="fixed-field">
+                <div class="rc-field">
+                  <div class="rc-field-label">Position Size</div>
+                  <div class="rc-input-row"><div class="rc-input-wrap"><span class="rc-prefix">$</span>
+                    <input class="rc-input" type="number" id="fixedSize" value="10000" oninput="calc()" placeholder="e.g. 10000" /></div></div>
+                  <div class="rc-field-hint">Shares = Position Size ÷ Entry Price</div>
+                </div>
+              </div>
+              <div class="rc-section">Trade Levels</div>
+              <div class="rc-field">
+                <div class="rc-field-label">Entry Price</div>
+                <div class="rc-input-row"><div class="rc-input-wrap"><span class="rc-prefix">$</span>
+                  <input class="rc-input" type="number" id="entry" value="100" oninput="onEntry()" /></div></div>
+              </div>
+              <div class="rc-field">
+                <div class="rc-field-label"><span class="field-tooltip">Stop Loss<span class="tooltip-text" id="stop-hint">Stop below entry — you lose when price drops</span></span></div>
+                <div class="rc-input-row">
+                  <div class="rc-input-wrap"><span class="rc-prefix">$</span>
+                    <input class="rc-input" type="number" id="stopDollar" value="95" oninput="onStopDollar()" /></div>
+                  <div class="rc-pct-wrap">
+                    <input class="rc-pct-input" type="number" id="stopPct" value="5" step="0.1" oninput="onStopPct()" />
+                    <span class="rc-pct-suffix">%</span></div>
+                </div>
+              </div>
+              <div class="rc-field">
+                <div class="rc-field-label"><span class="field-tooltip">Profit Target<span class="tooltip-text" id="target-hint">Target above entry — you profit when price rises</span></span></div>
+                <div class="rc-input-row">
+                  <div class="rc-input-wrap"><span class="rc-prefix">$</span>
+                    <input class="rc-input" type="number" id="targetDollar" value="115" oninput="onTargetDollar()" /></div>
+                  <div class="rc-pct-wrap">
+                    <input class="rc-pct-input" type="number" id="targetPct" value="15" step="0.1" oninput="onTargetPct()" />
+                    <span class="rc-pct-suffix">%</span></div>
+                </div>
+              </div>
+            </div>
+            <!-- MIDDLE: results -->
+            <div class="rc-right">
+              <div class="shares-hero" id="shares-hero">
+                <div class="shares-hero-label" id="shares-label">SHARES TO BUY</div>
+                <div class="shares-hero-value" id="shares-val">—</div>
+                <div class="shares-hero-capped" id="shares-capped">⚠ Capped by max position size</div>
+              </div>
+              <div class="stats-row">
+                <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">$</span><span class="stat-card-label">Position Value</span></div><div class="stat-card-value" id="s-posval">—</div></div>
+                <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">⚠</span><span class="stat-card-label">True $ Risk</span></div><div class="stat-card-value red" id="s-risk">—</div></div>
+                <div class="stat-card" id="equity-card"><div class="stat-card-header"><span class="stat-icon" id="equity-icon">%</span><span class="stat-card-label" id="equity-label">Plan Equity Risk %</span></div><div class="stat-card-value" id="s-equity">—</div><div class="stat-card-sub" id="s-equity-sub" style="display:none"></div></div>
+                <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">◎</span><span class="stat-card-label">R-Multiple (Reward/Risk)</span></div><div class="stat-card-value" id="s-rmult">—</div><div class="stat-badge green" id="s-rbadge" style="display:none"></div></div>
+              </div>
+              <div class="summary-block">
+                <div class="summary-block-label">Trade Summary</div>
+                <div class="sum-row"><span class="sum-row-label">Entry</span><span class="sum-row-value" id="t-entry">—</span></div>
+                <div class="sum-row"><span class="sum-row-label">Stop</span><span class="sum-row-value red" id="t-stop">—</span></div>
+                <div class="sum-row"><span class="sum-row-label">Target</span><span class="sum-row-value green" id="t-target">—</span></div>
+                <div class="sum-row"><span class="sum-row-label">Risk / Share</span><span class="sum-row-value red" id="t-rps">—</span></div>
+                <div class="sum-row"><span class="sum-row-label">Reward / Share</span><span class="sum-row-value green" id="t-rwps">—</span></div>
+              </div>
+              <button class="clear-btn" onclick="clearCalc()">Clear Calculator</button>
+            </div>
+            <!-- RIGHT: De-risk planner -->
+            <div class="rc-derisk">
+              <div class="rc-derisk-top">
+                <div class="rc-derisk-title" style="justify-content:space-between">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  De-risk Planner
+                  <button class="derisk-menu-btn" id="derisk-menu-btn">···</button>
+                </div>
+                <div class="rc-derisk-sub">Set exit levels to lock profit &amp; reduce risk</div>
+              </div>
+              <div class="levels-scroll" id="levels-container"></div>
+              <button class="add-level-btn" onclick="addLevel()">+ Add Trim</button>
+              <div class="derisk-summary">
+                <div class="ds-label">Summary</div>
+                <div class="ds-grid">
+                  <div class="ds-item"><div class="ds-item-label" data-tip="Profit captured from shares already sold at your take-profit price">Profit Locked</div><div class="ds-item-value g" id="ds-locked">—</div></div>
+                  <div class="ds-item"><div class="ds-item-label" data-tip="Dollar risk still on the table from unsold shares, based on their current stop">Remaining Risk</div><div class="ds-item-value r" id="ds-remain">—</div></div>
+                  <div class="ds-item"><div class="ds-item-label" data-tip="How much of your original risk has been eliminated by trimming shares and moving stops">Risk Reduced</div><div class="ds-item-value b" id="ds-reduced">—</div></div>
+                  <div class="ds-item"><div class="ds-item-label" data-tip="Your total outcome if every trim executes perfectly — locked profit minus remaining downside">Net if All Hit</div><div class="ds-item-value" id="ds-net">—</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="derisk-menu-popup" id="derisk-menu-popup">
+        <div class="derisk-menu-title">Default Trim Values</div>
+        <div class="derisk-menu-row">
+          <span class="derisk-menu-label">Auto (from trade levels)</span>
+          <button class="derisk-auto-btn" id="derisk-auto-btn">On</button>
+        </div>
+        <div id="derisk-manual-fields" class="derisk-manual-fields hidden">
+          <div>
+            <label class="derisk-menu-field-label">Take Profit <small>(% above entry)</small></label>
+            <div class="derisk-menu-input-wrap"><input class="derisk-menu-input" type="number" id="derisk-price-pct" value="15" step="0.5" min="0" /><span class="derisk-menu-suffix">%</span></div>
+          </div>
+          <div>
+            <label class="derisk-menu-field-label">Move Stop To <small>(% above entry)</small></label>
+            <div class="derisk-menu-input-wrap"><input class="derisk-menu-input" type="number" id="derisk-stop-pct" value="0" step="0.5" /><span class="derisk-menu-suffix">%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.jsx"></script>
+    <script src="./risk-calc.js"></script>
+</body>
+</html>
