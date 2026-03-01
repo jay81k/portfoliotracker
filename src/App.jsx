@@ -3957,6 +3957,7 @@ export default function PortfolioTracker() {
                     : rocPrimary >= 0  ? 10 + (rocPrimary / 2)   * 25
                     : 0;
 
+                const totalRealizedProfit = usdRealizedProfit + cadRealizedProfit;
                 const recoveryFactor = maxDDDollar > 0 ? totalRealizedProfit / maxDDDollar : null;
                 const _psScoreRF = recoveryFactor === null ? 100
                     : recoveryFactor >= 5 ? 100
