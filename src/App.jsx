@@ -5106,7 +5106,15 @@ export default function PortfolioTracker() {
                                 React.createElement('span', { key: s, style: { fontSize: '0.68rem', fontWeight: '600', fontFamily: GM, color: isDark ? '#9ca3af' : '#4b5563', background: chipBg, border: '1px solid ' + bd, borderRadius: '4px', padding: '0.15rem 0.45rem', letterSpacing: '0.03em', whiteSpace: 'nowrap' } }, s)
                             ),
                             overflow > 0 ? React.createElement('span', {
-                                onClick: e => { e.stopPropagation(); const top = Math.max(8, Math.min(e.clientY + 10, window.innerHeight - 275)); const left = Math.max(8, Math.min(e.clientX - 20, window.innerWidth - 215)); setCalSymbolPopover(isOpen ? null : { key: dateKey, symbols: symbols, top, left }); },
+                                onClick: e => {
+                                    e.stopPropagation();
+                                    if (isOpen) { setCalSymbolPopover(null); return; }
+                                    const r = e.currentTarget.getBoundingClientRect();
+                                    const spaceBelow = window.innerHeight - r.bottom;
+                                    const top = spaceBelow > 200 ? r.bottom + 6 : r.top - 206;
+                                    const left = Math.min(r.left, window.innerWidth - 215);
+                                    setCalSymbolPopover({ key: dateKey, symbols, top, left });
+                                },
                                 style: { fontSize: '0.68rem', fontWeight: '600', color: T.green, background: isDark ? 'rgba(0,255,136,0.08)' : 'rgba(5,150,105,0.08)', border: '1px solid ' + (isDark ? 'rgba(0,255,136,0.25)' : 'rgba(5,150,105,0.25)'), borderRadius: '4px', padding: '0.15rem 0.45rem', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none', fontFamily: GF }
                             }, '+' + overflow + ' more') : null,
                             isOpen ? null : null
