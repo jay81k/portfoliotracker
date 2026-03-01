@@ -3865,11 +3865,11 @@ export default function PortfolioTracker() {
                     cadCostBasis = cadClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
                     usdRealizedProfit = usdClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
                     cadRealizedProfit = cadClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
-                    usdDividends = statsTrades.filter(t => t.symbol && !isCAD(t.symbol)).reduce((s, t) => {
+                    usdDividends = usdClosedTrades.reduce((s, t) => {
                         if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
                         return s + (t.dividend || 0);
                     }, 0);
-                    cadDividends = statsTrades.filter(t => t.symbol && isCAD(t.symbol)).reduce((s, t) => {
+                    cadDividends = cadClosedTrades.reduce((s, t) => {
                         if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
                         return s + (t.dividend || 0);
                     }, 0);
@@ -3950,12 +3950,23 @@ export default function PortfolioTracker() {
 
                 const _psScoreWRPLR = (_psScoreWR !== null && _psScorePLR !== null) ? (_psScoreWR + _psScorePLR) / 2 : (_psScoreWR ?? _psScorePLR);
 
-                const _psScoreROC = rocPrimary === null ? null
-                    : rocPrimary >= 15 ? 100
-                    : rocPrimary >= 5  ? 80 + ((rocPrimary - 5)  / 10) * 20
-                    : rocPrimary >= 2  ? 55 + ((rocPrimary - 2)  / 3)  * 25
-                    : rocPrimary >= 0  ? 10 + (rocPrimary / 2)   * 25
+                const _rocScore = (roc) => roc === null ? null
+                    : roc >= 15 ? 100
+                    : roc >= 5  ? 80 + ((roc - 5)  / 10) * 20
+                    : roc >= 2  ? 55 + ((roc - 2)  / 3)  * 25
+                    : roc >= 0  ? 10 + (roc / 2)   * 25
                     : 0;
+                const _rocScoreUsd = _rocScore(rocPrimaryUsd);
+                const _rocScoreCAD = _rocScore(rocPrimaryCAD);
+                const _psScoreROC = (() => {
+                    if (_rocScoreUsd !== null && _rocScoreCAD !== null) {
+                        const totalBasis = usdCostBasis + cadCostBasis;
+                        return totalBasis > 0
+                            ? (_rocScoreUsd * usdCostBasis + _rocScoreCAD * cadCostBasis) / totalBasis
+                            : (_rocScoreUsd + _rocScoreCAD) / 2;
+                    }
+                    return _rocScoreUsd ?? _rocScoreCAD;
+                })();
 
                 const totalRealizedProfit = usdRealizedProfit + cadRealizedProfit;
                 const recoveryFactor = maxDDDollar > 0 ? totalRealizedProfit / maxDDDollar : null;
@@ -3971,7 +3982,7 @@ export default function PortfolioTracker() {
                     { score: _psScoreDD,    weight: 0.10, label: 'Max Drawdown',          value: maxDDPct > 0 ? maxDDPct.toFixed(1) + '% of peak' : '0%' },
                     { score: _psScoreRF,    weight: 0.10, label: 'Recovery Factor',       value: recoveryFactor !== null ? recoveryFactor.toFixed(2) + 'x' : 'No DD' },
                     { score: _psScoreWRPLR, weight: 0.25, label: 'Win Rate + P/L Ratio',  value: _psWinRate !== null ? _psWinRate.toFixed(1) + '% / ' + (_psPlRatioR !== null ? _psPlRatioR.toFixed(2) : '—') + ' (wt)' : null },
-                    { score: _psScoreROC,   weight: 0.15, label: 'Return on Capital',     value: rocPrimary !== null ? (rocPrimary >= 0 ? '+' : '') + rocPrimary.toFixed(2) + '%' + (hasDividendHistory ? ' (incl. div)' : '') : null },
+                    { score: _psScoreROC,   weight: 0.15, label: 'Return on Capital',     value: (() => { const parts = [rocPrimaryUsd !== null ? 'USD ' + (rocPrimaryUsd >= 0 ? '+' : '') + rocPrimaryUsd.toFixed(2) + '%' : null, rocPrimaryCAD !== null ? 'CAD ' + (rocPrimaryCAD >= 0 ? '+' : '') + rocPrimaryCAD.toFixed(2) + '%' : null].filter(Boolean); return parts.length ? parts.join(' / ') + (hasDividendHistory ? ' (incl. div)' : '') : null; })() },
                 ].filter(c => c.score !== null);
                 const _psTotalWeight = _psComponents.reduce((s, c) => s + c.weight, 0);
                 const perfScore = (_psTotalWeight > 0 && totalClosed >= 10) ? Math.round(_psComponents.reduce((s, c) => s + c.score * c.weight, 0) / _psTotalWeight) : null;
