@@ -3857,8 +3857,8 @@ export default function PortfolioTracker() {
                 const usdCostBasis = usdClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
                 const cadCostBasis = cadClosedTrades.reduce((s, t) => s + (t.entryPrice * (t.originalQty || t.qty)), 0);
 
-                const usdRealizedProfit = usdClosedTrades.reduce((s, t) => s + getTotalProfit(t), 0);
-                const cadRealizedProfit = cadClosedTrades.reduce((s, t) => s + getTotalProfit(t), 0);
+                const usdRealizedProfit = usdClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
+                const cadRealizedProfit = cadClosedTrades.reduce((s, t) => s + (getTotalProfit(t) || 0), 0);
 
                 const usdDividends = statsTrades.filter(t => !isCAD(t.symbol)).reduce((s, t) => {
                     if (t.dividendEntries && t.dividendEntries.length > 0) return s + t.dividendEntries.reduce((ds, e) => ds + e.amount, 0);
@@ -4311,28 +4311,18 @@ export default function PortfolioTracker() {
                                                         {maxDDPct > 0 && <div style={{ fontSize: '0.72rem', color: T.textMuted, marginTop: '0.25rem' }}>{maxDDPct.toFixed(1)}% of peak</div>}
                                                     </Card>
 
-                                                    <Card tip="Total realized P/L (incl. dividends where applicable) as a % of total capital deployed across all closed trades. Hover for ex-div breakdown.">
+                                                    <Card tip={hasDividendHistory ? `ex-div: ${rocUsd !== null ? (rocUsd >= 0 ? '+' : '') + rocUsd.toFixed(2) + '%' : '—'}${rocCad !== null ? ' | CAD ex-div: ' + (rocCad >= 0 ? '+' : '') + rocCad.toFixed(2) + '%' : ''}` : "Total realized P/L as a % of total capital deployed across all closed trades"}>
                                                         <Label>Return on Capital</Label>
-                                                        <div style={{ position: 'relative' }}
-                                                            onMouseEnter={e => { const t = e.currentTarget.querySelector('.roc-exdiv'); if (t) t.style.display = 'block'; }}
-                                                            onMouseLeave={e => { const t = e.currentTarget.querySelector('.roc-exdiv'); if (t) t.style.display = 'none'; }}>
-                                                            {rocPrimaryUsd !== null ? (
-                                                                <div style={{ fontSize: '1.6rem', fontWeight: '700', color: rocPrimaryUsd >= 0 ? T.green : T.red }}>
-                                                                    {(rocPrimaryUsd >= 0 ? '+' : '') + rocPrimaryUsd.toFixed(2) + '%'}
-                                                                </div>
-                                                            ) : <div style={{ fontSize: '1.6rem', fontWeight: '700', color: T.textMuted }}>—</div>}
-                                                            {rocPrimaryCAD !== null && (
-                                                                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.78rem', fontWeight: '500', color: rocPrimaryCAD >= 0 ? T.green : T.red }}>
-                                                                    CAD {(rocPrimaryCAD >= 0 ? '+' : '') + rocPrimaryCAD.toFixed(2) + '%'}
-                                                                </div>
-                                                            )}
-                                                            {hasDividendHistory && (
-                                                                <div className="roc-exdiv" style={{ display: 'none', position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: T.surfaceBg, border: `1px solid ${T.borderStrong}`, borderRadius: '6px', padding: '6px 10px', fontSize: '0.68rem', color: T.textMuted, whiteSpace: 'nowrap', zIndex: 100, boxShadow: T.shadowMd }}>
-                                                                    {rocUsd !== null && <div>ex-div: {(rocUsd >= 0 ? '+' : '') + rocUsd.toFixed(2) + '%'}</div>}
-                                                                    {rocCad !== null && <div>CAD ex-div: {(rocCad >= 0 ? '+' : '') + rocCad.toFixed(2) + '%'}</div>}
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                        {rocPrimaryUsd !== null ? (
+                                                            <div style={{ fontSize: '1.6rem', fontWeight: '700', color: rocPrimaryUsd >= 0 ? T.green : T.red }}>
+                                                                {(rocPrimaryUsd >= 0 ? '+' : '') + rocPrimaryUsd.toFixed(2) + '%'}
+                                                            </div>
+                                                        ) : <div style={{ fontSize: '1.6rem', fontWeight: '700', color: T.textMuted }}>—</div>}
+                                                        {rocPrimaryCAD !== null && (
+                                                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.78rem', fontWeight: '500', color: rocPrimaryCAD >= 0 ? T.green : T.red }}>
+                                                                CAD {(rocPrimaryCAD >= 0 ? '+' : '') + rocPrimaryCAD.toFixed(2) + '%'}
+                                                            </div>
+                                                        )}
                                                     </Card>
 
                                                 </div>
