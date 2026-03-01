@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import './main.css';
 import './risk-calc.css';
 
@@ -2114,9 +2115,9 @@ export default function PortfolioTracker() {
             };
 
             const renderSharedModals = () => (<>
-                {calSymbolPopover && (
+                {calSymbolPopover && ReactDOM.createPortal(
                     <div onClick={e => e.stopPropagation()}
-                        style={{ position: 'fixed', top: calSymbolPopover.top, left: calSymbolPopover.left, background: isDark ? '#191919' : '#fff', border: '1px solid ' + T.borderStrong, borderRadius: '8px', padding: '0.6rem 0.75rem', zIndex: 2000, boxShadow: isDark ? '0 12px 32px rgba(0,0,0,0.7)' : '0 6px 24px rgba(0,0,0,0.14)', minWidth: '130px', maxWidth: '200px', maxHeight: '260px', overflowY: 'auto' }}>
+                        style={{ position: 'fixed', top: calSymbolPopover.top, left: calSymbolPopover.left, background: isDark ? '#191919' : '#fff', border: '1px solid ' + T.borderStrong, borderRadius: '8px', padding: '0.6rem 0.75rem', zIndex: 99999, boxShadow: isDark ? '0 12px 32px rgba(0,0,0,0.7)' : '0 6px 24px rgba(0,0,0,0.14)', minWidth: '130px', maxWidth: '200px', maxHeight: '260px', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                             <span style={{ fontSize: '0.6rem', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700', fontFamily: "'DM Mono', monospace" }}>All symbols</span>
                             <span onClick={e => { e.stopPropagation(); setCalSymbolPopover(null); }} style={{ fontSize: '0.7rem', color: T.textMuted, cursor: 'pointer', padding: '2px 5px' }}>x</span>
@@ -2124,7 +2125,8 @@ export default function PortfolioTracker() {
                         {calSymbolPopover.symbols.map((s, si) =>
                             <div key={s} style={{ fontSize: '0.78rem', fontWeight: '600', color: T.textPrimary, fontFamily: "'DM Mono', monospace", lineHeight: '1.75', borderBottom: si < calSymbolPopover.symbols.length - 1 ? '1px solid ' + (isDark ? '#222' : '#f0f0f0') : 'none' }}>{s}</div>
                         )}
-                    </div>
+                    </div>,
+                    document.body
                 )}
                 {confirmDialog && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: T.modalOverlay, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', zIndex: 1200 }}>
