@@ -3952,6 +3952,16 @@ export default function PortfolioTracker() {
 
                 const _psScoreWRPLR = (_psScoreWR !== null && _psScorePLR !== null) ? (_psScoreWR + _psScorePLR) / 2 : (_psScoreWR ?? _psScorePLR);
 
+                // CAGR — uses rocPrimaryUsd/CAD (profit/startingBalance %) already computed above,
+                // annualised from earliest trade date to today. Fully independent of dashboard timeframe.
+                const calcCagr = (pct, yrs) => (!yrs || yrs < 0.5 || pct === null) ? null : (Math.pow(1 + pct/100, 1/yrs) - 1) * 100;
+                const allTradeDates = statsTrades.filter(t => t.entryDate).map(t => t.entryDate);
+                const earliestDate  = allTradeDates.length > 0 ? allTradeDates.reduce((a, b) => a < b ? a : b) : null;
+                const yearsTotal    = earliestDate ? (new Date() - new Date(earliestDate)) / (1000*60*60*24*365.25) : null;
+                const usdCagr = calcCagr(rocPrimaryUsd, yearsTotal);
+                const cadCagr = calcCagr(rocPrimaryCAD, yearsTotal);
+                const hasCagr = usdCagr !== null || cadCagr !== null;
+
                 // Score CAGR against real-world benchmarks:
                 // <5%  = underperforming a savings account / bonds
                 // 10%  = matching long-run S&P 500 average
@@ -4057,15 +4067,6 @@ export default function PortfolioTracker() {
                 const fmtFull = n => (n >= 0 ? '+' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const fmtSize = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-                // CAGR — uses rocPrimaryUsd/CAD (profit/startingBalance %) already computed above,
-                // annualised from earliest trade date to today. Fully independent of dashboard timeframe.
-                const calcCagr = (pct, yrs) => (!yrs || yrs < 0.5 || pct === null) ? null : (Math.pow(1 + pct/100, 1/yrs) - 1) * 100;
-                const allTradeDates = statsTrades.filter(t => t.entryDate).map(t => t.entryDate);
-                const earliestDate  = allTradeDates.length > 0 ? allTradeDates.reduce((a, b) => a < b ? a : b) : null;
-                const yearsTotal    = earliestDate ? (new Date() - new Date(earliestDate)) / (1000*60*60*24*365.25) : null;
-                const usdCagr = calcCagr(rocPrimaryUsd, yearsTotal);
-                const cadCagr = calcCagr(rocPrimaryCAD, yearsTotal);
-                const hasCagr = usdCagr !== null || cadCagr !== null;
 
                 // Monthly chart with dividend toggle
                 const MonthlyChartComponent = () => {
