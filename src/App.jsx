@@ -3952,25 +3952,31 @@ export default function PortfolioTracker() {
 
                 const _psScoreWRPLR = (_psScoreWR !== null && _psScorePLR !== null) ? (_psScoreWR + _psScorePLR) / 2 : (_psScoreWR ?? _psScorePLR);
 
-                const _rocScore = (roc) => roc === null ? null
-                    : roc >= 15 ? 100
-                    : roc >= 5  ? 80 + ((roc - 5)  / 10) * 20
-                    : roc >= 2  ? 55 + ((roc - 2)  / 3)  * 25
-                    : roc >= 0  ? 10 + (roc / 2)   * 25
+                // Score CAGR against real-world benchmarks:
+                // <5%  = underperforming a savings account / bonds
+                // 10%  = matching long-run S&P 500 average
+                // 15%  = beating the market comfortably
+                // 20%+ = excellent, top-tier retail performance
+                const _cagrScore = (cagr) => cagr === null ? null
+                    : cagr >= 20 ? 100
+                    : cagr >= 15 ? 80 + ((cagr - 15) / 5)  * 20
+                    : cagr >= 10 ? 55 + ((cagr - 10) / 5)  * 25
+                    : cagr >= 5  ? 25 + ((cagr - 5)  / 5)  * 30
+                    : cagr >= 0  ? (cagr / 5) * 25
                     : 0;
-                const _rocScoreUsd = _rocScore(rocPrimaryUsd);
-                const _rocScoreCAD = _rocScore(rocPrimaryCAD);
+                const _cagrScoreUsd = _cagrScore(usdCagr);
+                const _cagrScoreCAD = _cagrScore(cadCagr);
                 const _psScoreROC = (() => {
-                    if (_rocScoreUsd !== null && _rocScoreCAD !== null) {
+                    if (_cagrScoreUsd !== null && _cagrScoreCAD !== null) {
                         // Weight by starting balance size so the larger account has more influence
                         const usdBal = parseFloat(activeBalances.usd) || 0;
                         const cadBal = parseFloat(activeBalances.cad) || 0;
                         const totalBal = usdBal + cadBal;
                         return totalBal > 0
-                            ? (_rocScoreUsd * usdBal + _rocScoreCAD * cadBal) / totalBal
-                            : (_rocScoreUsd + _rocScoreCAD) / 2;
+                            ? (_cagrScoreUsd * usdBal + _cagrScoreCAD * cadBal) / totalBal
+                            : (_cagrScoreUsd + _cagrScoreCAD) / 2;
                     }
-                    return _rocScoreUsd ?? _rocScoreCAD;
+                    return _cagrScoreUsd ?? _cagrScoreCAD;
                 })();
 
                 const totalRealizedProfit = usdRealizedProfit + cadRealizedProfit;
@@ -3987,7 +3993,7 @@ export default function PortfolioTracker() {
                     { score: _psScoreDD,    weight: 0.10, label: 'Max Drawdown',          value: maxDDPct > 0 ? maxDDPct.toFixed(1) + '% of peak' : '0%' },
                     { score: _psScoreRF,    weight: 0.10, label: 'Recovery Factor',       value: recoveryFactor !== null ? recoveryFactor.toFixed(2) + 'x' : 'No DD' },
                     { score: _psScoreWRPLR, weight: 0.25, label: 'Win Rate + P/L Ratio',  value: _psWinRate !== null ? _psWinRate.toFixed(1) + '% / ' + (_psPlRatioR !== null ? _psPlRatioR.toFixed(2) : '—') + ' (wt)' : null },
-                    { score: _psScoreROC,   weight: 0.15, label: 'Return on Capital',     value: (() => { const parts = [rocPrimaryUsd !== null ? 'USD ' + (rocPrimaryUsd >= 0 ? '+' : '') + rocPrimaryUsd.toFixed(2) + '%' : null, rocPrimaryCAD !== null ? 'CAD ' + (rocPrimaryCAD >= 0 ? '+' : '') + rocPrimaryCAD.toFixed(2) + '%' : null].filter(Boolean); return parts.length ? parts.join(' / ') + (hasDividendHistory ? ' (incl. div)' : '') : null; })() },
+                    { score: _psScoreROC,   weight: 0.15, label: 'CAGR',                  value: (() => { const parts = [usdCagr !== null ? 'USD ' + (usdCagr >= 0 ? '+' : '') + usdCagr.toFixed(2) + '%/yr' : null, cadCagr !== null ? 'CAD ' + (cadCagr >= 0 ? '+' : '') + cadCagr.toFixed(2) + '%/yr' : null].filter(Boolean); return parts.length ? parts.join(' / ') : null; })() },
                 ].filter(c => c.score !== null);
                 const _psTotalWeight = _psComponents.reduce((s, c) => s + c.weight, 0);
                 const perfScore = (_psTotalWeight > 0 && totalClosed >= 10) ? Math.round(_psComponents.reduce((s, c) => s + c.score * c.weight, 0) / _psTotalWeight) : null;
@@ -4051,13 +4057,29 @@ export default function PortfolioTracker() {
                 const fmtFull = n => (n >= 0 ? '+' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const fmtSize = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-                // CAGR calculation (same logic as dashboard)
-                const allTradeDates = statsTrades.filter(t => t.entryDate).map(t => t.entryDate);
-                const earliestDate = allTradeDates.length > 0 ? allTradeDates.reduce((a, b) => a < b ? a : b) : null;
-                const yearsTotal = earliestDate ? (new Date() - new Date(earliestDate)) / (1000*60*60*24*365.25) : null;
+                // CAGR — computed directly from statsTrades so it is always ALL-time,
+                // independent of the dashboard chartTimeframe filter.
+                // Profit is recalculated here (same logic as currencyReturns) against starting balance.
                 const calcCagr = (pct, yrs) => (!yrs || yrs < 0.5 || pct === null) ? null : (Math.pow(1 + pct/100, 1/yrs) - 1) * 100;
-                const usdCagr = calcCagr(currencyReturns.usd, yearsTotal);
-                const cadCagr = calcCagr(currencyReturns.cad, yearsTotal);
+                const allTradeDates = statsTrades.filter(t => t.entryDate).map(t => t.entryDate);
+                const earliestDate  = allTradeDates.length > 0 ? allTradeDates.reduce((a, b) => a < b ? a : b) : null;
+                const latestDate    = allTradeDates.length > 0 ? allTradeDates.reduce((a, b) => a > b ? a : b) : null;
+                const yearsTotal    = earliestDate ? (new Date() - new Date(earliestDate)) / (1000*60*60*24*365.25) : null;
+                const usdDepsDenom  = (activeBalances.depositsUsd || []).reduce((s, d) => s + (parseFloat(d.amt) || 0), 0);
+                const cadDepsDenom  = (activeBalances.depositsCad || []).reduce((s, d) => s + (parseFloat(d.amt) || 0), 0);
+                const usdStartBal   = parseFloat(activeBalances.usd) + (activeBalances.mode === 'current' ? usdDepsDenom : 0);
+                const cadStartBal   = parseFloat(activeBalances.cad) + (activeBalances.mode === 'current' ? cadDepsDenom : 0);
+                const calcStatsProfit = (tradeList) => tradeList.reduce((sum, t) => {
+                    const capitalGains = t.exitDate ? getTotalProfit(t) : ((t.partialExits && t.partialExits.length > 0) ? t.partialExits.reduce((s, pe) => s + (pe.profit || 0), 0) : 0);
+                    const dividends = t.dividendEntries && t.dividendEntries.length > 0 ? t.dividendEntries.reduce((s, e) => s + e.amount, 0) : (t.dividend || 0);
+                    return sum + capitalGains + dividends;
+                }, 0);
+                const statsUsdProfit = calcStatsProfit(statsTrades.filter(t => t.symbol && !isCAD(t.symbol)));
+                const statsCadProfit = calcStatsProfit(statsTrades.filter(t => t.symbol && isCAD(t.symbol)));
+                const statsUsdRocPct = (!isNaN(usdStartBal) && usdStartBal > 0) ? (statsUsdProfit / usdStartBal) * 100 : null;
+                const statsCadRocPct = (!isNaN(cadStartBal) && cadStartBal > 0) ? (statsCadProfit / cadStartBal) * 100 : null;
+                const usdCagr = calcCagr(statsUsdRocPct, yearsTotal);
+                const cadCagr = calcCagr(statsCadRocPct, yearsTotal);
                 const hasCagr = usdCagr !== null || cadCagr !== null;
 
                 // Monthly chart with dividend toggle
