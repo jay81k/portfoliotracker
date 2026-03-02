@@ -4057,29 +4057,14 @@ export default function PortfolioTracker() {
                 const fmtFull = n => (n >= 0 ? '+' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const fmtSize = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-                // CAGR — computed directly from statsTrades so it is always ALL-time,
-                // independent of the dashboard chartTimeframe filter.
-                // Profit is recalculated here (same logic as currencyReturns) against starting balance.
+                // CAGR — uses rocPrimaryUsd/CAD (profit/startingBalance %) already computed above,
+                // annualised from earliest trade date to today. Fully independent of dashboard timeframe.
                 const calcCagr = (pct, yrs) => (!yrs || yrs < 0.5 || pct === null) ? null : (Math.pow(1 + pct/100, 1/yrs) - 1) * 100;
                 const allTradeDates = statsTrades.filter(t => t.entryDate).map(t => t.entryDate);
                 const earliestDate  = allTradeDates.length > 0 ? allTradeDates.reduce((a, b) => a < b ? a : b) : null;
-                const latestDate    = allTradeDates.length > 0 ? allTradeDates.reduce((a, b) => a > b ? a : b) : null;
                 const yearsTotal    = earliestDate ? (new Date() - new Date(earliestDate)) / (1000*60*60*24*365.25) : null;
-                const usdDepsDenom  = (activeBalances.depositsUsd || []).reduce((s, d) => s + (parseFloat(d.amt) || 0), 0);
-                const cadDepsDenom  = (activeBalances.depositsCad || []).reduce((s, d) => s + (parseFloat(d.amt) || 0), 0);
-                const usdStartBal   = parseFloat(activeBalances.usd) + (activeBalances.mode === 'current' ? usdDepsDenom : 0);
-                const cadStartBal   = parseFloat(activeBalances.cad) + (activeBalances.mode === 'current' ? cadDepsDenom : 0);
-                const calcStatsProfit = (tradeList) => tradeList.reduce((sum, t) => {
-                    const capitalGains = t.exitDate ? getTotalProfit(t) : ((t.partialExits && t.partialExits.length > 0) ? t.partialExits.reduce((s, pe) => s + (pe.profit || 0), 0) : 0);
-                    const dividends = t.dividendEntries && t.dividendEntries.length > 0 ? t.dividendEntries.reduce((s, e) => s + e.amount, 0) : (t.dividend || 0);
-                    return sum + capitalGains + dividends;
-                }, 0);
-                const statsUsdProfit = calcStatsProfit(statsTrades.filter(t => t.symbol && !isCAD(t.symbol)));
-                const statsCadProfit = calcStatsProfit(statsTrades.filter(t => t.symbol && isCAD(t.symbol)));
-                const statsUsdRocPct = (!isNaN(usdStartBal) && usdStartBal > 0) ? (statsUsdProfit / usdStartBal) * 100 : null;
-                const statsCadRocPct = (!isNaN(cadStartBal) && cadStartBal > 0) ? (statsCadProfit / cadStartBal) * 100 : null;
-                const usdCagr = calcCagr(statsUsdRocPct, yearsTotal);
-                const cadCagr = calcCagr(statsCadRocPct, yearsTotal);
+                const usdCagr = calcCagr(rocPrimaryUsd, yearsTotal);
+                const cadCagr = calcCagr(rocPrimaryCAD, yearsTotal);
                 const hasCagr = usdCagr !== null || cadCagr !== null;
 
                 // Monthly chart with dividend toggle
