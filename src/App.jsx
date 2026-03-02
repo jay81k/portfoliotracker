@@ -3962,33 +3962,6 @@ export default function PortfolioTracker() {
                 const cadCagr = calcCagr(rocPrimaryCAD, yearsTotal);
                 const hasCagr = usdCagr !== null || cadCagr !== null;
 
-                // Score CAGR against real-world benchmarks:
-                // <5%  = underperforming a savings account / bonds
-                // 10%  = matching long-run S&P 500 average
-                // 15%  = beating the market comfortably
-                // 20%+ = excellent, top-tier retail performance
-                const _cagrScore = (cagr) => cagr === null ? null
-                    : cagr >= 20 ? 100
-                    : cagr >= 15 ? 80 + ((cagr - 15) / 5)  * 20
-                    : cagr >= 10 ? 55 + ((cagr - 10) / 5)  * 25
-                    : cagr >= 5  ? 25 + ((cagr - 5)  / 5)  * 30
-                    : cagr >= 0  ? (cagr / 5) * 25
-                    : 0;
-                const _cagrScoreUsd = _cagrScore(usdCagr);
-                const _cagrScoreCAD = _cagrScore(cadCagr);
-                const _psScoreROC = (() => {
-                    if (_cagrScoreUsd !== null && _cagrScoreCAD !== null) {
-                        // Weight by starting balance size so the larger account has more influence
-                        const usdBal = parseFloat(activeBalances.usd) || 0;
-                        const cadBal = parseFloat(activeBalances.cad) || 0;
-                        const totalBal = usdBal + cadBal;
-                        return totalBal > 0
-                            ? (_cagrScoreUsd * usdBal + _cagrScoreCAD * cadBal) / totalBal
-                            : (_cagrScoreUsd + _cagrScoreCAD) / 2;
-                    }
-                    return _cagrScoreUsd ?? _cagrScoreCAD;
-                })();
-
                 const totalRealizedProfit = usdRealizedProfit + cadRealizedProfit;
                 const recoveryFactor = maxDDDollar > 0 ? totalRealizedProfit / maxDDDollar : null;
                 const _psScoreRF = recoveryFactor === null ? 100
@@ -3998,12 +3971,11 @@ export default function PortfolioTracker() {
                     : recoveryFactor >= 1 ? 40 + ((recoveryFactor - 1) / 1) * 25
                     : Math.max(0, recoveryFactor * 40);
                 const _psComponents = [
-                    { score: _psScorePF,    weight: 0.20, label: 'Profit Factor',        value: _psProfitFactorR !== null ? _psProfitFactorR.toFixed(2) + ' (wt)' : null },
-                    { score: _psScoreExp,   weight: 0.20, label: 'Expectancy',            value: _psExpectancy !== null ? (_psExpectancy >= 0 ? '+' : '') + '$' + Math.abs(_psExpectancy).toFixed(2) + ' (wt)' : null },
-                    { score: _psScoreDD,    weight: 0.10, label: 'Max Drawdown',          value: maxDDPct > 0 ? maxDDPct.toFixed(1) + '% of peak' : '0%' },
-                    { score: _psScoreRF,    weight: 0.10, label: 'Recovery Factor',       value: recoveryFactor !== null ? recoveryFactor.toFixed(2) + 'x' : 'No DD' },
-                    { score: _psScoreWRPLR, weight: 0.25, label: 'Win Rate + P/L Ratio',  value: _psWinRate !== null ? _psWinRate.toFixed(1) + '% / ' + (_psPlRatioR !== null ? _psPlRatioR.toFixed(2) : '—') + ' (wt)' : null },
-                    { score: _psScoreROC,   weight: 0.15, label: 'CAGR',                  value: (() => { const parts = [usdCagr !== null ? 'USD ' + (usdCagr >= 0 ? '+' : '') + usdCagr.toFixed(2) + '%/yr' : null, cadCagr !== null ? 'CAD ' + (cadCagr >= 0 ? '+' : '') + cadCagr.toFixed(2) + '%/yr' : null].filter(Boolean); return parts.length ? parts.join(' / ') : null; })() },
+                    { score: _psScorePF,    weight: 0.275, label: 'Profit Factor',        value: _psProfitFactorR !== null ? _psProfitFactorR.toFixed(2) + ' (wt)' : null },
+                    { score: _psScoreExp,   weight: 0.275, label: 'Expectancy',            value: _psExpectancy !== null ? (_psExpectancy >= 0 ? '+' : '') + '$' + Math.abs(_psExpectancy).toFixed(2) + ' (wt)' : null },
+                    { score: _psScoreDD,    weight: 0.10,  label: 'Max Drawdown',          value: maxDDPct > 0 ? maxDDPct.toFixed(1) + '% of peak' : '0%' },
+                    { score: _psScoreRF,    weight: 0.10,  label: 'Recovery Factor',       value: recoveryFactor !== null ? recoveryFactor.toFixed(2) + 'x' : 'No DD' },
+                    { score: _psScoreWRPLR, weight: 0.25,  label: 'Win Rate + P/L Ratio',  value: _psWinRate !== null ? _psWinRate.toFixed(1) + '% / ' + (_psPlRatioR !== null ? _psPlRatioR.toFixed(2) : '—') + ' (wt)' : null },
                 ].filter(c => c.score !== null);
                 const _psTotalWeight = _psComponents.reduce((s, c) => s + c.weight, 0);
                 const perfScore = (_psTotalWeight > 0 && totalClosed >= 10) ? Math.round(_psComponents.reduce((s, c) => s + c.score * c.weight, 0) / _psTotalWeight) : null;
