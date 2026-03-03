@@ -88,12 +88,12 @@ import './risk-calc.css';
                 req.onerror = () => reject(req.error);
             });
             return {
-                async save(tradeId, blob) {
+                async save(tradeId, blobs) {
                     try {
                         const db = await open();
                         return new Promise((resolve, reject) => {
                             const tx = db.transaction('screenshots', 'readwrite');
-                            tx.objectStore('screenshots').put({ tradeId, blob });
+                            tx.objectStore('screenshots').put({ tradeId, blobs });
                             tx.oncomplete = resolve;
                             tx.onerror = () => reject(tx.error);
                         });
@@ -105,10 +105,16 @@ import './risk-calc.css';
                         return new Promise((resolve, reject) => {
                             const req = db.transaction('screenshots', 'readonly')
                                 .objectStore('screenshots').get(tradeId);
-                            req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+                            req.onsuccess = () => {
+                                const result = req.result;
+                                if (!result) return resolve([]);
+                                if (result.blobs) return resolve(result.blobs);
+                                if (result.blob) return resolve([result.blob]);
+                                resolve([]);
+                            };
                             req.onerror = () => reject(req.error);
                         });
-                    } catch (e) { return null; }
+                    } catch (e) { return []; }
                 },
                 async delete(tradeId) {
                     try {
@@ -163,10 +169,10 @@ export default function PortfolioTracker() {
             });
             const [showPartialExit, setShowPartialExit] = useState(false);
             // Screenshot state
-            const [screenshotBlob, setScreenshotBlob] = useState(null);       // blob held while modal is open
+            const [screenshotBlobs, setScreenshotBlobs] = useState([]);       // array of blobs held while modal is open (max 10)
             const [isPasteActive, setIsPasteActive] = useState(false);         // paste-ready mode toggle
-            const [screenshotIds, setScreenshotIds] = useState(new Set());     // set of tradeIds that have a screenshot
-            const [lightboxSrc, setLightboxSrc] = useState(null);              // object URL for lightbox preview
+            const [screenshotIds, setScreenshotIds] = useState(new Set());     // set of tradeIds that have screenshots
+            const [lightboxData, setLightboxData] = useState(null);            // { srcs: [], index: 0 } for gallery lightbox
             const screenshotFileRef = useRef(null);                            // hidden file input ref (add modal)
             const screenshotFileEditRef = useRef(null);                        // hidden file input ref (edit modal)
             
@@ -835,8 +841,8 @@ export default function PortfolioTracker() {
                 if (!trades.length) { setScreenshotIds(new Set()); return; }
                 (async () => {
                     const results = await Promise.all(trades.map(async (t) => {
-                        const blob = await screenshotDB.get(t.id);
-                        return blob ? t.id : null;
+                        const blobs = await screenshotDB.get(t.id);
+                        return blobs.length > 0 ? t.id : null;
                     }));
                     setScreenshotIds(new Set(results.filter(Boolean)));
                 })();
@@ -849,7 +855,7 @@ export default function PortfolioTracker() {
                     const file = Array.from(e.clipboardData?.files || []).find(f => f.type.startsWith('image/'));
                     if (!file) return;
                     e.preventDefault();
-                    setScreenshotBlob(file);
+                    setScreenshotBlobs(prev => prev.length < 10 ? [...prev, file] : prev);
                     setIsPasteActive(false);
                 };
                 document.addEventListener('paste', handler);
@@ -1051,12 +1057,12 @@ export default function PortfolioTracker() {
                     dividendEntries: []
                 };
                 await saveTrades([...tradesRef.current, newTrade]);
-                if (screenshotBlob) {
-                    await screenshotDB.save(newTrade.id, screenshotBlob);
+                if (screenshotBlobs.length > 0) {
+                    await screenshotDB.save(newTrade.id, screenshotBlobs);
                     setScreenshotIds(prev => new Set([...prev, newTrade.id]));
                 }
                 setShowAddTrade(false);
-                setScreenshotBlob(null);
+                setScreenshotBlobs([]);
                 setIsPasteActive(false);
                 resetFormData();
             };
@@ -1261,12 +1267,12 @@ export default function PortfolioTracker() {
                     notes: trade.notes,
                     direction: trade.direction || 'long'
                 });
-                // Load screenshot from IndexedDB if one exists
-                setScreenshotBlob(null);
+                // Load screenshots from IndexedDB if any exist
+                setScreenshotBlobs([]);
                 setIsPasteActive(false);
                 if (screenshotIds.has(trade.id)) {
-                    screenshotDB.get(trade.id).then(blob => {
-                        if (blob) setScreenshotBlob(blob);
+                    screenshotDB.get(trade.id).then(blobs => {
+                        if (blobs.length > 0) setScreenshotBlobs(blobs);
                     });
                 }
                 setShowEditTrade(true);
@@ -1300,18 +1306,18 @@ export default function PortfolioTracker() {
                     direction: formData.direction || 'long'
                 };
                 await saveTrades(tradesRef.current.map(t => t.id === editingTrade.id ? updatedTrade : t));
-                // Save, update, or remove screenshot in IndexedDB
-                if (screenshotBlob) {
-                    await screenshotDB.save(editingTrade.id, screenshotBlob);
+                // Save, update, or remove screenshots in IndexedDB
+                if (screenshotBlobs.length > 0) {
+                    await screenshotDB.save(editingTrade.id, screenshotBlobs);
                     setScreenshotIds(prev => new Set([...prev, editingTrade.id]));
                 } else if (screenshotIds.has(editingTrade.id)) {
-                    // screenshotBlob was cleared by user — delete from DB
+                    // all screenshots removed by user — delete from DB
                     await screenshotDB.delete(editingTrade.id);
                     setScreenshotIds(prev => { const s = new Set(prev); s.delete(editingTrade.id); return s; });
                 }
                 setShowEditTrade(false);
                 setEditingTrade(null);
-                setScreenshotBlob(null);
+                setScreenshotBlobs([]);
                 setIsPasteActive(false);
                 setFormData({ symbol: '', name: '', qty: '', entryPrice: '', entryDate: new Date().toISOString().split('T')[0],
                     exitDate: '', exitPrice: '', fees: '0', profit: '0', dividend: '0', notes: '', direction: 'long' });
@@ -2253,79 +2259,111 @@ export default function PortfolioTracker() {
             const handleScreenshotFile = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                setScreenshotBlob(file);
+                setScreenshotBlobs(prev => prev.length < 10 ? [...prev, file] : prev);
                 setIsPasteActive(false);
                 e.target.value = '';
             };
 
-            const screenshotPreviewUrl = screenshotBlob
-                ? (screenshotBlob instanceof Blob ? URL.createObjectURL(screenshotBlob) : null)
-                : null;
-
-            const ScreenshotSection = ({ fileInputRef }) => (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.05em' }}>
-                        Screenshot
-                        <span style={{ color: T.textFaint, fontSize: '0.68rem', fontWeight: 400, marginLeft: '0.4rem', textTransform: 'none' }}>optional</span>
-                    </label>
-                    {!screenshotBlob ? (
-                        <div style={{ flex: 1, minHeight: '108px', border: `1px dashed ${isPasteActive ? T.blue : T.borderStrong}`, borderRadius: '4px', background: isPasteActive ? 'rgba(0,204,255,0.04)' : T.panelBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.65rem', padding: '0.65rem', transition: 'all 0.15s' }}>
-                            {isPasteActive ? (
-                                <>
-                                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,204,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.blue }}><ClipboardIcon size={14} /></div>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ color: T.blue, fontSize: '0.72rem', fontWeight: '700', letterSpacing: '0.05em' }}>READY</div>
-                                        <div style={{ color: T.textMuted, fontSize: '0.65rem', marginTop: '0.2rem' }}>Press ⌘V / Ctrl+V</div>
-                                    </div>
-                                    <button onClick={() => setIsPasteActive(false)} style={{ fontSize: '0.62rem', color: T.textFaint, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>cancel</button>
-                                </>
-                            ) : (
-                                <>
-                                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: T.raisedBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textFaint }}><CameraIcon size={14} /></div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', width: '100%' }}>
-                                        <button onClick={() => fileInputRef.current?.click()} style={{ width: '100%', padding: '0.45rem 0.4rem', background: T.raisedBg, border: `1px solid ${T.borderStrong}`, borderRadius: '3px', color: T.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.03em' }}
-                                            onMouseEnter={e => { e.currentTarget.style.borderColor = T.blue; e.currentTarget.style.color = T.blue; }}
-                                            onMouseLeave={e => { e.currentTarget.style.borderColor = T.borderStrong; e.currentTarget.style.color = T.textSecondary; }}>
-                                            <CameraIcon size={11} /> ATTACH FILE
-                                        </button>
-                                        <button onClick={() => setIsPasteActive(true)} style={{ width: '100%', padding: '0.45rem 0.4rem', background: T.raisedBg, border: `1px dashed ${T.borderStrong}`, borderRadius: '3px', color: T.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.03em' }}
-                                            onMouseEnter={e => { e.currentTarget.style.borderColor = T.blue; e.currentTarget.style.color = T.blue; }}
-                                            onMouseLeave={e => { e.currentTarget.style.borderColor = T.borderStrong; e.currentTarget.style.color = T.textSecondary; }}>
-                                            <ClipboardIcon size={11} /> PASTE
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                            <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }} onChange={handleScreenshotFile} />
-                        </div>
-                    ) : (
-                        <div style={{ flex: 1, minHeight: '108px', position: 'relative', border: `1px solid ${T.borderStrong}`, borderRadius: '4px', overflow: 'hidden', background: T.panelBg }}>
-                            <img src={screenshotPreviewUrl} alt="Trade screenshot" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.88))', padding: '1.2rem 0.45rem 0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ color: T.green, fontSize: '0.6rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: T.green, display: 'inline-block' }}/>ATTACHED
-                                </span>
-                                <div style={{ display: 'flex', gap: '0.3rem' }}>
-                                    <button onClick={() => setLightboxSrc(screenshotPreviewUrl)} style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${T.borderStrong}`, borderRadius: '3px', color: T.textMuted, cursor: 'pointer', padding: '0.18rem 0.3rem', display: 'flex', alignItems: 'center' }} title="View full size">
-                                        <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-                                    </button>
-                                    <button onClick={() => setScreenshotBlob(null)} style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${T.red}`, borderRadius: '3px', color: T.red, cursor: 'pointer', padding: '0.18rem 0.35rem', fontSize: '0.58rem', fontWeight: '700' }}>REMOVE</button>
+            const ScreenshotSection = ({ fileInputRef }) => {
+                const atMax = screenshotBlobs.length >= 10;
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.05em' }}>
+                            Screenshots
+                            <span style={{ color: T.textFaint, fontSize: '0.68rem', fontWeight: 400, marginLeft: '0.4rem', textTransform: 'none' }}>
+                                {screenshotBlobs.length > 0 ? `${screenshotBlobs.length}/10` : 'optional'}
+                            </span>
+                        </label>
+                        <div style={{ flex: 1, minHeight: '108px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {/* Thumbnail strip — shown when at least one screenshot exists */}
+                            {screenshotBlobs.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                    {screenshotBlobs.map((blob, idx) => {
+                                        const src = blob instanceof Blob ? URL.createObjectURL(blob) : null;
+                                        if (!src) return null;
+                                        return (
+                                            <div key={idx} style={{ position: 'relative', width: 54, height: 40, borderRadius: '3px', overflow: 'hidden', border: `1px solid ${T.borderStrong}`, flexShrink: 0 }}>
+                                                <img src={src} alt={`screenshot ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+                                                    onClick={() => {
+                                                        const srcs = screenshotBlobs.map(b => b instanceof Blob ? URL.createObjectURL(b) : null).filter(Boolean);
+                                                        setLightboxData({ srcs, index: idx });
+                                                    }}
+                                                />
+                                                <button
+                                                    onClick={() => setScreenshotBlobs(prev => prev.filter((_, i) => i !== idx))}
+                                                    style={{ position: 'absolute', top: 1, right: 1, width: 14, height: 14, borderRadius: '50%', background: 'rgba(0,0,0,0.75)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: '900', lineHeight: 1 }}
+                                                    title="Remove"
+                                                >✕</button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            </div>
+                            )}
+                            {/* Add controls — hidden at max, collapsed to empty state if no screenshots */}
+                            {!atMax && (
+                                <div style={{ flex: screenshotBlobs.length === 0 ? 1 : 0, minHeight: screenshotBlobs.length === 0 ? '108px' : 'unset', border: `1px dashed ${isPasteActive ? T.blue : T.borderStrong}`, borderRadius: '4px', background: isPasteActive ? 'rgba(0,204,255,0.04)' : T.panelBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.55rem', transition: 'all 0.15s' }}>
+                                    {isPasteActive ? (
+                                        <>
+                                            <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,204,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.blue }}><ClipboardIcon size={13} /></div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ color: T.blue, fontSize: '0.68rem', fontWeight: '700', letterSpacing: '0.05em' }}>READY</div>
+                                                <div style={{ color: T.textMuted, fontSize: '0.62rem', marginTop: '0.15rem' }}>Press ⌘V / Ctrl+V</div>
+                                            </div>
+                                            <button onClick={() => setIsPasteActive(false)} style={{ fontSize: '0.6rem', color: T.textFaint, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>cancel</button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {screenshotBlobs.length === 0 && <div style={{ width: 24, height: 24, borderRadius: '50%', background: T.raisedBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textFaint }}><CameraIcon size={13} /></div>}
+                                            <div style={{ display: 'flex', gap: '0.3rem', width: '100%' }}>
+                                                <button onClick={() => fileInputRef.current?.click()} style={{ flex: 1, padding: '0.4rem 0.3rem', background: T.raisedBg, border: `1px solid ${T.borderStrong}`, borderRadius: '3px', color: T.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontSize: '0.65rem', fontWeight: '600' }}
+                                                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.blue; e.currentTarget.style.color = T.blue; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.borderStrong; e.currentTarget.style.color = T.textSecondary; }}>
+                                                    <CameraIcon size={11} /> ATTACH
+                                                </button>
+                                                <button onClick={() => setIsPasteActive(true)} style={{ flex: 1, padding: '0.4rem 0.3rem', background: T.raisedBg, border: `1px dashed ${T.borderStrong}`, borderRadius: '3px', color: T.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontSize: '0.65rem', fontWeight: '600' }}
+                                                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.blue; e.currentTarget.style.color = T.blue; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.borderStrong; e.currentTarget.style.color = T.textSecondary; }}>
+                                                    <ClipboardIcon size={11} /> PASTE
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                    <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }} onChange={handleScreenshotFile} />
+                                </div>
+                            )}
+                            {atMax && (
+                                <div style={{ padding: '0.35rem', textAlign: 'center', color: T.textFaint, fontSize: '0.65rem', fontWeight: '600', letterSpacing: '0.05em' }}>10 / 10 MAX REACHED</div>
+                            )}
                         </div>
-                    )}
-                </div>
-            );
-
-            // Lightbox overlay
-            const Lightbox = () => lightboxSrc ? (
-                <div onClick={() => setLightboxSrc(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, cursor: 'zoom-out' }}>
-                    <div style={{ position: 'relative', maxWidth: '85vw', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
-                        <img src={lightboxSrc} alt="Screenshot" style={{ maxWidth: '85vw', maxHeight: '85vh', borderRadius: '6px', border: `1px solid ${T.borderStrong}`, display: 'block' }} />
-                        <button onClick={() => setLightboxSrc(null)} style={{ position: 'absolute', top: -14, right: -14, width: 28, height: 28, borderRadius: '50%', background: T.raisedBg, border: `1px solid ${T.borderStrong}`, color: T.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '700' }}>✕</button>
                     </div>
-                </div>
-            ) : null;
+                );
+            };
+
+            // Lightbox gallery overlay
+            const Lightbox = () => {
+                if (!lightboxData) return null;
+                const { srcs, index } = lightboxData;
+                const total = srcs.length;
+                const prev = () => setLightboxData(d => ({ ...d, index: (d.index - 1 + total) % total }));
+                const next = () => setLightboxData(d => ({ ...d, index: (d.index + 1) % total }));
+                return (
+                    <div onClick={() => setLightboxData(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                        <div style={{ position: 'relative', maxWidth: '85vw', maxHeight: '85vh', display: 'flex', alignItems: 'center', gap: '1rem' }} onClick={e => e.stopPropagation()}>
+                            {total > 1 && (
+                                <button onClick={prev} style={{ position: 'absolute', left: -44, width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: `1px solid rgba(255,255,255,0.15)`, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', zIndex: 1 }}>‹</button>
+                            )}
+                            <img src={srcs[index]} alt={`Screenshot ${index + 1}`} style={{ maxWidth: '85vw', maxHeight: '85vh', borderRadius: '6px', border: `1px solid rgba(255,255,255,0.1)`, display: 'block' }} />
+                            {total > 1 && (
+                                <button onClick={next} style={{ position: 'absolute', right: -44, width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: `1px solid rgba(255,255,255,0.15)`, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', zIndex: 1 }}>›</button>
+                            )}
+                            <div style={{ position: 'absolute', bottom: -28, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+                                {total > 1 ? `${index + 1} / ${total}` : ''}
+                            </div>
+                            <button onClick={() => setLightboxData(null)} style={{ position: 'absolute', top: -14, right: -14, width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,30,30,0.9)', border: `1px solid rgba(255,255,255,0.15)`, color: '#aaa', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '700' }}>✕</button>
+                        </div>
+                    </div>
+                );
+            };
             // ─────────────────────────────────────────────────────────────────
 
             const renderSharedModals = () => (<>
@@ -2355,7 +2393,7 @@ export default function PortfolioTracker() {
                         <div style={{ background: T.surfaceBg, borderRadius: '8px', padding: '2rem', maxWidth: '540px', width: '100%', border: `1px solid ${T.border}`, maxHeight: '90vh', overflow: 'auto' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
                                 <h3 style={{ margin: 0, fontSize: '1.5rem' }}>ADD TRADE</h3>
-                                <button onClick={() => { setShowAddTrade(false); resetFormData(); setScreenshotBlob(null); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
+                                <button onClick={() => { setShowAddTrade(false); resetFormData(); setScreenshotBlobs([]); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.8fr 145px', gap: '1rem' }}>
@@ -5965,11 +6003,14 @@ export default function PortfolioTracker() {
                                                 <td style={{ padding: '1rem', textAlign: 'center' }}>
                                                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                                                         <button
-                                                            title={screenshotIds.has(trade.id) ? 'View screenshot' : 'No screenshot'}
+                                                            title={screenshotIds.has(trade.id) ? 'View screenshots' : 'No screenshot'}
                                                             onClick={async () => {
                                                                 if (!screenshotIds.has(trade.id)) return;
-                                                                const blob = await screenshotDB.get(trade.id);
-                                                                if (blob) setLightboxSrc(URL.createObjectURL(blob));
+                                                                const blobs = await screenshotDB.get(trade.id);
+                                                                if (blobs.length > 0) {
+                                                                    const srcs = blobs.map(b => URL.createObjectURL(b));
+                                                                    setLightboxData({ srcs, index: 0 });
+                                                                }
                                                             }}
                                                             style={{ background: 'transparent', border: `1px solid ${screenshotIds.has(trade.id) ? T.green : T.borderStrong}`, color: screenshotIds.has(trade.id) ? T.green : T.textFaint, padding: '0.5rem', borderRadius: '4px', cursor: screenshotIds.has(trade.id) ? 'pointer' : 'default', opacity: screenshotIds.has(trade.id) ? 1 : 0.35, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                         >
@@ -6068,7 +6109,7 @@ export default function PortfolioTracker() {
                                             );
                                         })()}
                                     </div>
-                                    <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); setScreenshotBlob(null); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
+                                    <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); setScreenshotBlobs([]); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.65fr', gap: '1rem' }}>
