@@ -76,59 +76,22 @@ import './risk-calc.css';
         };
 
         // ── IndexedDB helpers for trade screenshots ──────────────────────────
-        const screenshotDB = (() => {
-            let _db = null;
-            const open = () => new Promise((resolve, reject) => {
-                if (_db) return resolve(_db);
-                const req = indexedDB.open('pt_screenshots', 1);
-                req.onupgradeneeded = (e) => {
-                    e.target.result.createObjectStore('screenshots', { keyPath: 'tradeId' });
-                };
-                req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
-                req.onerror = () => reject(req.error);
+        // imgbb upload helper
+        const IMGBB_API_KEY = 'c836f1377a54e55b3495ce3b42355060';
+        const uploadToImgbb = async (blob) => {
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
             });
-            return {
-                async save(tradeId, blobs) {
-                    try {
-                        const db = await open();
-                        return new Promise((resolve, reject) => {
-                            const tx = db.transaction('screenshots', 'readwrite');
-                            tx.objectStore('screenshots').put({ tradeId, blobs });
-                            tx.oncomplete = resolve;
-                            tx.onerror = () => reject(tx.error);
-                        });
-                    } catch (e) { console.error('screenshotDB.save error', e); }
-                },
-                async get(tradeId) {
-                    try {
-                        const db = await open();
-                        return new Promise((resolve, reject) => {
-                            const req = db.transaction('screenshots', 'readonly')
-                                .objectStore('screenshots').get(tradeId);
-                            req.onsuccess = () => {
-                                const result = req.result;
-                                if (!result) return resolve([]);
-                                if (result.blobs) return resolve(result.blobs);
-                                if (result.blob) return resolve([result.blob]);
-                                resolve([]);
-                            };
-                            req.onerror = () => reject(req.error);
-                        });
-                    } catch (e) { return []; }
-                },
-                async delete(tradeId) {
-                    try {
-                        const db = await open();
-                        return new Promise((resolve, reject) => {
-                            const tx = db.transaction('screenshots', 'readwrite');
-                            tx.objectStore('screenshots').delete(tradeId);
-                            tx.oncomplete = resolve;
-                            tx.onerror = () => reject(tx.error);
-                        });
-                    } catch (e) { console.error('screenshotDB.delete error', e); }
-                },
-            };
-        })();
+            const form = new FormData();
+            form.append('image', base64);
+            const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: form });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error?.message || 'imgbb upload failed');
+            return data.data.url;
+        };
         // ─────────────────────────────────────────────────────────────────────
 
 export default function PortfolioTracker() {
@@ -168,11 +131,12 @@ export default function PortfolioTracker() {
                 exitDate: '', exitPrice: '', fees: '0', profit: '0', dividend: '0', notes: '', direction: 'long'
             });
             const [showPartialExit, setShowPartialExit] = useState(false);
-            // Screenshot state
-            const [screenshotBlobs, setScreenshotBlobs] = useState([]);       // array of blobs held while modal is open (max 10)
-            const [isPasteActive, setIsPasteActive] = useState(false);         // paste-ready mode toggle
-            const [screenshotIds, setScreenshotIds] = useState(new Set());     // set of tradeIds that have screenshots
-            const [lightboxData, setLightboxData] = useState(null);            // { srcs: [], index: 0 } for gallery lightbox
+            // Screenshot state - URLs on trade object, uploaded to imgbb
+            const [screenshotUrls, setScreenshotUrls] = useState([]);
+            const [pendingBlobs, setPendingBlobs] = useState([]);
+            const [uploadingScreenshots, setUploadingScreenshots] = useState(false);
+            const [isPasteActive, setIsPasteActive] = useState(false);
+            const [lightboxData, setLightboxData] = useState(null);
             const screenshotFileRef = useRef(null);                            // hidden file input ref (add modal)
             const screenshotFileEditRef = useRef(null);                        // hidden file input ref (edit modal)
             
@@ -836,18 +800,6 @@ export default function PortfolioTracker() {
                 setDividendAddDate(new Date().toISOString().split('T')[0]);
             }, [editingTrade?.id]);
 
-            // Scan IndexedDB to know which trades have screenshots (for camera icon in rows)
-            useEffect(() => {
-                if (!trades.length) { setScreenshotIds(new Set()); return; }
-                (async () => {
-                    const results = await Promise.all(trades.map(async (t) => {
-                        const blobs = await screenshotDB.get(t.id);
-                        return blobs.length > 0 ? t.id : null;
-                    }));
-                    setScreenshotIds(new Set(results.filter(Boolean)));
-                })();
-            }, [trades]);
-
             // Paste listener — active only when isPasteActive is true and a modal is open
             useEffect(() => {
                 if (!isPasteActive) return;
@@ -855,7 +807,7 @@ export default function PortfolioTracker() {
                     const file = Array.from(e.clipboardData?.files || []).find(f => f.type.startsWith('image/'));
                     if (!file) return;
                     e.preventDefault();
-                    setScreenshotBlobs(prev => prev.length < 10 ? [...prev, file] : prev);
+                    setPendingBlobs(prev => (screenshotUrls.length + prev.length) < 10 ? [...prev, file] : prev);
                     setIsPasteActive(false);
                 };
                 document.addEventListener('paste', handler);
@@ -1056,13 +1008,22 @@ export default function PortfolioTracker() {
                     partialAdds: [],
                     dividendEntries: []
                 };
-                await saveTrades([...tradesRef.current, newTrade]);
-                if (screenshotBlobs.length > 0) {
-                    await screenshotDB.save(newTrade.id, screenshotBlobs);
-                    setScreenshotIds(prev => new Set([...prev, newTrade.id]));
+                let allUrls = [...screenshotUrls];
+                if (pendingBlobs.length > 0) {
+                    setUploadingScreenshots(true);
+                    try {
+                        const uploaded = await Promise.all(pendingBlobs.map(b => uploadToImgbb(b)));
+                        allUrls = [...allUrls, ...uploaded];
+                    } catch(e) {
+                        showToast("error", "Upload Failed", "Could not upload screenshot(s). Check your connection and try again.");
+                        setUploadingScreenshots(false); return;
+                    }
+                    setUploadingScreenshots(false);
                 }
+                const newTradeWithScreenshots = { ...newTrade, screenshotUrls: allUrls };
+                await saveTrades([...tradesRef.current, newTradeWithScreenshots]);
                 setShowAddTrade(false);
-                setScreenshotBlobs([]);
+                setScreenshotUrls([]); setPendingBlobs([]);
                 setIsPasteActive(false);
                 resetFormData();
             };
@@ -1070,8 +1031,6 @@ export default function PortfolioTracker() {
             const handleDeleteTrade = (id) => {
                 showConfirm('Delete Trade', 'Are you sure you want to delete this trade? This cannot be undone.', async () => {
                     await saveTrades(tradesRef.current.filter(t => t.id !== id));
-                    await screenshotDB.delete(id);
-                    setScreenshotIds(prev => { const s = new Set(prev); s.delete(id); return s; });
                 });
             };
 
@@ -1267,14 +1226,9 @@ export default function PortfolioTracker() {
                     notes: trade.notes,
                     direction: trade.direction || 'long'
                 });
-                // Load screenshots from IndexedDB if any exist
-                setScreenshotBlobs([]);
+                setScreenshotUrls(trade.screenshotUrls || []);
+                setPendingBlobs([]);
                 setIsPasteActive(false);
-                if (screenshotIds.has(trade.id)) {
-                    screenshotDB.get(trade.id).then(blobs => {
-                        if (blobs.length > 0) setScreenshotBlobs(blobs);
-                    });
-                }
                 setShowEditTrade(true);
             };
 
@@ -1305,19 +1259,22 @@ export default function PortfolioTracker() {
                     notes: formData.notes.trim(),
                     direction: formData.direction || 'long'
                 };
-                await saveTrades(tradesRef.current.map(t => t.id === editingTrade.id ? updatedTrade : t));
-                // Save, update, or remove screenshots in IndexedDB
-                if (screenshotBlobs.length > 0) {
-                    await screenshotDB.save(editingTrade.id, screenshotBlobs);
-                    setScreenshotIds(prev => new Set([...prev, editingTrade.id]));
-                } else if (screenshotIds.has(editingTrade.id)) {
-                    // all screenshots removed by user — delete from DB
-                    await screenshotDB.delete(editingTrade.id);
-                    setScreenshotIds(prev => { const s = new Set(prev); s.delete(editingTrade.id); return s; });
+                let finalUrls = [...screenshotUrls];
+                if (pendingBlobs.length > 0) {
+                    setUploadingScreenshots(true);
+                    try {
+                        const uploaded = await Promise.all(pendingBlobs.map(b => uploadToImgbb(b)));
+                        finalUrls = [...finalUrls, ...uploaded];
+                    } catch(e) {
+                        showToast("error", "Upload Failed", "Could not upload screenshot(s). Check your connection and try again.");
+                        setUploadingScreenshots(false); return;
+                    }
+                    setUploadingScreenshots(false);
                 }
-                setShowEditTrade(false);
-                setEditingTrade(null);
-                setScreenshotBlobs([]);
+                const tradeWithScreenshots = { ...updatedTrade, screenshotUrls: finalUrls };
+                await saveTrades(tradesRef.current.map(t => t.id === editingTrade.id ? tradeWithScreenshots : t));
+                setShowEditTrade(false); setEditingTrade(null);
+                setScreenshotUrls([]); setPendingBlobs([]);
                 setIsPasteActive(false);
                 setFormData({ symbol: '', name: '', qty: '', entryPrice: '', entryDate: new Date().toISOString().split('T')[0],
                     exitDate: '', exitPrice: '', fees: '0', profit: '0', dividend: '0', notes: '', direction: 'long' });
@@ -1670,7 +1627,7 @@ export default function PortfolioTracker() {
                     })
                 );
                 const backup = {
-                    version: 4,
+                    version: 5,  // v5: screenshotUrls on each trade
                     exportedAt: new Date().toISOString(),
                     portfolios: allPortfolioData,
                     activePortfolioId,
@@ -1710,7 +1667,8 @@ export default function PortfolioTracker() {
                                     partialExits: trade.partialExits || [],
                                     partialAdds: trade.partialAdds || [],
                                     dividendEntries: trade.dividendEntries || [],
-                                    direction: trade.direction || 'long'
+                                    direction: trade.direction || 'long',
+                                    screenshotUrls: trade.screenshotUrls || []
                                 }));
                                 await window.storage.set(`portfolio_trades_${p.id}`, JSON.stringify(migrated));
                                 // v4: each portfolio has its own balances object
@@ -1744,7 +1702,8 @@ export default function PortfolioTracker() {
                                 partialExits: trade.partialExits || [],
                                 partialAdds: trade.partialAdds || [],
                                 dividendEntries: trade.dividendEntries || [],
-                                direction: trade.direction || 'long'
+                                direction: trade.direction || 'long',
+                                screenshotUrls: trade.screenshotUrls || []
                             }));
                             await window.storage.set(`portfolio_trades_${activePortfolioId}`, JSON.stringify(migratedTrades));
                             if (hasBalances) {
@@ -2259,61 +2218,70 @@ export default function PortfolioTracker() {
             const handleScreenshotFile = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                setScreenshotBlobs(prev => prev.length < 10 ? [...prev, file] : prev);
+                const totalCount = screenshotUrls.length + pendingBlobs.length;
+                if (totalCount < 10) setPendingBlobs(prev => [...prev, file]);
                 setIsPasteActive(false);
                 e.target.value = '';
             };
 
             const ScreenshotSection = ({ fileInputRef }) => {
-                const atMax = screenshotBlobs.length >= 10;
+                const totalCount = screenshotUrls.length + pendingBlobs.length;
+                const atMax = totalCount >= 10;
+                const allItems = [
+                    ...screenshotUrls.map(url => ({ type: 'url', src: url })),
+                    ...pendingBlobs.map(blob => ({ type: 'blob', src: blob instanceof Blob ? URL.createObjectURL(blob) : null }))
+                ].filter(item => item.src);
+                const removeItem = (idx) => {
+                    if (idx < screenshotUrls.length) {
+                        setScreenshotUrls(prev => prev.filter((_, i) => i !== idx));
+                    } else {
+                        setPendingBlobs(prev => prev.filter((_, i) => i !== (idx - screenshotUrls.length)));
+                    }
+                };
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.05em' }}>
                             Screenshots
                             <span style={{ color: T.textFaint, fontSize: '0.68rem', fontWeight: 400, marginLeft: '0.4rem', textTransform: 'none' }}>
-                                {screenshotBlobs.length > 0 ? `${screenshotBlobs.length}/10` : 'optional'}
+                                {totalCount > 0 ? `${totalCount}/10` : 'optional'}
                             </span>
                         </label>
                         <div style={{ flex: 1, minHeight: '108px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                            {/* Thumbnail strip — shown when at least one screenshot exists */}
-                            {screenshotBlobs.length > 0 && (
+                            {allItems.length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                                    {screenshotBlobs.map((blob, idx) => {
-                                        const src = blob instanceof Blob ? URL.createObjectURL(blob) : null;
-                                        if (!src) return null;
-                                        return (
-                                            <div key={idx} style={{ position: 'relative', width: 54, height: 40, borderRadius: '3px', overflow: 'hidden', border: `1px solid ${T.borderStrong}`, flexShrink: 0 }}>
-                                                <img src={src} alt={`screenshot ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
-                                                    onClick={() => {
-                                                        const srcs = screenshotBlobs.map(b => b instanceof Blob ? URL.createObjectURL(b) : null).filter(Boolean);
-                                                        setLightboxData({ srcs, index: idx });
-                                                    }}
-                                                />
-                                                <button
-                                                    onClick={() => setScreenshotBlobs(prev => prev.filter((_, i) => i !== idx))}
-                                                    style={{ position: 'absolute', top: 1, right: 1, width: 14, height: 14, borderRadius: '50%', background: 'rgba(0,0,0,0.75)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: '900', lineHeight: 1 }}
-                                                    title="Remove"
-                                                >✕</button>
-                                            </div>
-                                        );
-                                    })}
+                                    {allItems.map((item, idx) => (
+                                        <div key={idx} style={{ position: 'relative', width: 54, height: 40, borderRadius: '3px', overflow: 'hidden', border: `1px solid ${item.type === 'blob' ? T.amber : T.borderStrong}`, flexShrink: 0 }}>
+                                            <img src={item.src} alt={`screenshot ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+                                                onClick={() => setLightboxData({ srcs: allItems.map(i => i.src), index: idx })}
+                                            />
+                                            {item.type === 'blob' && (
+                                                <div style={{ position: 'absolute', bottom: 1, left: 1, fontSize: '0.45rem', fontWeight: '700', color: T.amber, background: 'rgba(0,0,0,0.65)', padding: '0 2px', borderRadius: '2px', lineHeight: 1.4 }}>PENDING</div>
+                                            )}
+                                            <button onClick={() => removeItem(idx)} style={{ position: 'absolute', top: 1, right: 1, width: 14, height: 14, borderRadius: '50%', background: 'rgba(0,0,0,0.75)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: '900', lineHeight: 1 }} title="Remove">&#x2715;</button>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
-                            {/* Add controls — hidden at max, collapsed to empty state if no screenshots */}
+                            {uploadingScreenshots && (
+                                <div style={{ fontSize: '0.68rem', color: T.blue, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', border: `2px solid ${T.blue}`, borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
+                                    Uploading...
+                                </div>
+                            )}
                             {!atMax && (
-                                <div style={{ flex: screenshotBlobs.length === 0 ? 1 : 0, minHeight: screenshotBlobs.length === 0 ? '108px' : 'unset', border: `1px dashed ${isPasteActive ? T.blue : T.borderStrong}`, borderRadius: '4px', background: isPasteActive ? 'rgba(0,204,255,0.04)' : T.panelBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.55rem', transition: 'all 0.15s' }}>
+                                <div style={{ flex: allItems.length === 0 ? 1 : 0, minHeight: allItems.length === 0 ? '108px' : 'unset', border: `1px dashed ${isPasteActive ? T.blue : T.borderStrong}`, borderRadius: '4px', background: isPasteActive ? 'rgba(0,204,255,0.04)' : T.panelBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.55rem', transition: 'all 0.15s' }}>
                                     {isPasteActive ? (
                                         <>
                                             <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,204,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.blue }}><ClipboardIcon size={13} /></div>
                                             <div style={{ textAlign: 'center' }}>
                                                 <div style={{ color: T.blue, fontSize: '0.68rem', fontWeight: '700', letterSpacing: '0.05em' }}>READY</div>
-                                                <div style={{ color: T.textMuted, fontSize: '0.62rem', marginTop: '0.15rem' }}>Press ⌘V / Ctrl+V</div>
+                                                <div style={{ color: T.textMuted, fontSize: '0.62rem', marginTop: '0.15rem' }}>Press Cmd/Ctrl+V</div>
                                             </div>
                                             <button onClick={() => setIsPasteActive(false)} style={{ fontSize: '0.6rem', color: T.textFaint, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>cancel</button>
                                         </>
                                     ) : (
                                         <>
-                                            {screenshotBlobs.length === 0 && <div style={{ width: 24, height: 24, borderRadius: '50%', background: T.raisedBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textFaint }}><CameraIcon size={13} /></div>}
+                                            {allItems.length === 0 && <div style={{ width: 24, height: 24, borderRadius: '50%', background: T.raisedBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textFaint }}><CameraIcon size={13} /></div>}
                                             <div style={{ display: 'flex', gap: '0.3rem', width: '100%' }}>
                                                 <button onClick={() => fileInputRef.current?.click()} style={{ flex: 1, padding: '0.4rem 0.3rem', background: T.raisedBg, border: `1px solid ${T.borderStrong}`, borderRadius: '3px', color: T.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontSize: '0.65rem', fontWeight: '600' }}
                                                     onMouseEnter={e => { e.currentTarget.style.borderColor = T.blue; e.currentTarget.style.color = T.blue; }}
@@ -2331,15 +2299,13 @@ export default function PortfolioTracker() {
                                     <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }} onChange={handleScreenshotFile} />
                                 </div>
                             )}
-                            {atMax && (
-                                <div style={{ padding: '0.35rem', textAlign: 'center', color: T.textFaint, fontSize: '0.65rem', fontWeight: '600', letterSpacing: '0.05em' }}>10 / 10 MAX REACHED</div>
-                            )}
+                            {atMax && <div style={{ padding: '0.35rem', textAlign: 'center', color: T.textFaint, fontSize: '0.65rem', fontWeight: '600', letterSpacing: '0.05em' }}>10 / 10 MAX REACHED</div>}
                         </div>
                     </div>
                 );
             };
 
-            // Lightbox gallery — inlined as JSX to avoid component remount on index change
+            // Lightbox gallery
             const lightboxJSX = lightboxData ? (() => {
                 const { srcs, index } = lightboxData;
                 const total = srcs.length;
@@ -2351,19 +2317,19 @@ export default function PortfolioTracker() {
                             <img src={srcs[index]} alt={`Screenshot ${index + 1}`} style={{ maxWidth: '85vw', maxHeight: '85vh', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', display: 'block' }} />
                             {total > 1 && (
                                 <>
-                                    <button onClick={goPrev} onMouseEnter={e => e.currentTarget.style.opacity='1'} onMouseLeave={e => e.currentTarget.style.opacity='0.35'} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.75)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', zIndex: 1, lineHeight: 1, opacity: '0.35', transition: 'opacity 0.15s' }}>‹</button>
-                                    <button onClick={goNext} onMouseEnter={e => e.currentTarget.style.opacity='1'} onMouseLeave={e => e.currentTarget.style.opacity='0.35'} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.75)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', zIndex: 1, lineHeight: 1, opacity: '0.35', transition: 'opacity 0.15s' }}>›</button>
+                                    <button onClick={goPrev} onMouseEnter={e => e.currentTarget.style.opacity='1'} onMouseLeave={e => e.currentTarget.style.opacity='0.35'} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.75)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', zIndex: 1, lineHeight: 1, opacity: '0.35', transition: 'opacity 0.15s' }}>&#x2039;</button>
+                                    <button onClick={goNext} onMouseEnter={e => e.currentTarget.style.opacity='1'} onMouseLeave={e => e.currentTarget.style.opacity='0.35'} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.75)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', zIndex: 1, lineHeight: 1, opacity: '0.35', transition: 'opacity 0.15s' }}>&#x203a;</button>
                                     <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.55)', borderRadius: '10px', padding: '0.15rem 0.6rem', color: 'rgba(255,255,255,0.7)', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>{index + 1} / {total}</div>
                                 </>
                             )}
-                            <button onClick={() => setLightboxData(null)} style={{ position: 'absolute', top: -14, right: -14, width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,30,30,0.9)', border: '1px solid rgba(255,255,255,0.15)', color: '#aaa', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '700' }}>✕</button>
+                            <button onClick={() => setLightboxData(null)} style={{ position: 'absolute', top: -14, right: -14, width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,30,30,0.9)', border: '1px solid rgba(255,255,255,0.15)', color: '#aaa', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '700' }}>&#x2715;</button>
                         </div>
                     </div>
                 );
             })() : null;
             // ─────────────────────────────────────────────────────────────────
 
-            const renderSharedModals = () => (<>
+                        const renderSharedModals = () => (<>
                 {confirmDialog && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: T.modalOverlay, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', zIndex: 1200 }}>
                         <div style={{ background: T.surfaceBg, borderRadius: '8px', padding: '2rem', maxWidth: '400px', width: '100%', border: `1px solid ${T.border}` }}>
@@ -2390,7 +2356,7 @@ export default function PortfolioTracker() {
                         <div style={{ background: T.surfaceBg, borderRadius: '8px', padding: '2rem', maxWidth: '540px', width: '100%', border: `1px solid ${T.border}`, maxHeight: '90vh', overflow: 'auto' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
                                 <h3 style={{ margin: 0, fontSize: '1.5rem' }}>ADD TRADE</h3>
-                                <button onClick={() => { setShowAddTrade(false); resetFormData(); setScreenshotBlobs([]); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
+                                <button onClick={() => { setShowAddTrade(false); resetFormData(); setScreenshotUrls([]); setPendingBlobs([]); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.8fr 145px', gap: '1rem' }}>
@@ -5816,7 +5782,7 @@ export default function PortfolioTracker() {
                                                 Total Profit {sortColumn === 'totalProfit' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Status</th>
-                                            <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Actions</th>
+                                            <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -5997,24 +5963,20 @@ export default function PortfolioTracker() {
                                                         {isOpen ? 'OPEN' : (liveProfit >= -5 && liveProfit <= 5 ? 'EVEN' : (liveProfit > 5 ? 'WIN' : 'LOSS'))}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center' }}>
+                                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                                                         <button
-                                                            title={screenshotIds.has(trade.id) ? 'View screenshots' : 'No screenshot'}
-                                                            onClick={async () => {
-                                                                if (!screenshotIds.has(trade.id)) return;
-                                                                const blobs = await screenshotDB.get(trade.id);
-                                                                if (blobs.length > 0) {
-                                                                    const srcs = blobs.map(b => URL.createObjectURL(b));
-                                                                    setLightboxData({ srcs, index: 0 });
-                                                                }
+                                                            title={(trade.screenshotUrls?.length > 0) ? 'View screenshots' : 'No screenshot'}
+                                                            onClick={() => {
+                                                                if (!trade.screenshotUrls?.length) return;
+                                                                setLightboxData({ srcs: trade.screenshotUrls, index: 0 });
                                                             }}
-                                                            style={{ background: 'transparent', border: `1px solid ${screenshotIds.has(trade.id) ? T.green : T.borderStrong}`, color: screenshotIds.has(trade.id) ? T.green : T.textFaint, padding: '0.4rem', borderRadius: '4px', cursor: screenshotIds.has(trade.id) ? 'pointer' : 'default', opacity: screenshotIds.has(trade.id) ? 1 : 0.35, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                            style={{ background: 'transparent', border: `1px solid ${trade.screenshotUrls?.length > 0 ? T.green : T.borderStrong}`, color: trade.screenshotUrls?.length > 0 ? T.green : T.textFaint, padding: '0.4rem', borderRadius: '4px', cursor: trade.screenshotUrls?.length > 0 ? 'pointer' : 'default', opacity: trade.screenshotUrls?.length > 0 ? 1 : 0.35, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                         >
                                                             <CameraIcon size={14} />
                                                         </button>
-                                                        <button onClick={() => handleEditTrade(trade)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.blue, padding: '0.4rem', borderRadius: '4px', cursor: 'pointer' }} title="Edit"><Edit size={14} /></button>
-                                                        <button onClick={() => handleDeleteTrade(trade.id)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.red, padding: '0.4rem', borderRadius: '4px', cursor: 'pointer' }} title="Delete"><Trash2 size={14} /></button>
+                                                        <button onClick={() => handleEditTrade(trade)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.blue, padding: '0.5rem', borderRadius: '4px', cursor: 'pointer' }} title="Edit"><Edit size={16} /></button>
+                                                        <button onClick={() => handleDeleteTrade(trade.id)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.red, padding: '0.5rem', borderRadius: '4px', cursor: 'pointer' }} title="Delete"><Trash2 size={16} /></button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -6106,7 +6068,7 @@ export default function PortfolioTracker() {
                                             );
                                         })()}
                                     </div>
-                                    <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); setScreenshotBlobs([]); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
+                                    <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); setScreenshotUrls([]); setPendingBlobs([]); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.65fr', gap: '1rem' }}>
