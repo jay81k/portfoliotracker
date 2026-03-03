@@ -47,6 +47,18 @@ import './risk-calc.css';
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
         );
+        const CameraIcon = ({ size = 16 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+            </svg>
+        );
+        const ClipboardIcon = ({ size = 16 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+            </svg>
+        );
 
         window.storage = {
             async get(key) {
@@ -62,6 +74,56 @@ import './risk-calc.css';
                 } catch (e) { return null; }
             }
         };
+
+        // ── IndexedDB helpers for trade screenshots ──────────────────────────
+        const screenshotDB = (() => {
+            let _db = null;
+            const open = () => new Promise((resolve, reject) => {
+                if (_db) return resolve(_db);
+                const req = indexedDB.open('pt_screenshots', 1);
+                req.onupgradeneeded = (e) => {
+                    e.target.result.createObjectStore('screenshots', { keyPath: 'tradeId' });
+                };
+                req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
+                req.onerror = () => reject(req.error);
+            });
+            return {
+                async save(tradeId, blob) {
+                    try {
+                        const db = await open();
+                        return new Promise((resolve, reject) => {
+                            const tx = db.transaction('screenshots', 'readwrite');
+                            tx.objectStore('screenshots').put({ tradeId, blob });
+                            tx.oncomplete = resolve;
+                            tx.onerror = () => reject(tx.error);
+                        });
+                    } catch (e) { console.error('screenshotDB.save error', e); }
+                },
+                async get(tradeId) {
+                    try {
+                        const db = await open();
+                        return new Promise((resolve, reject) => {
+                            const req = db.transaction('screenshots', 'readonly')
+                                .objectStore('screenshots').get(tradeId);
+                            req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+                            req.onerror = () => reject(req.error);
+                        });
+                    } catch (e) { return null; }
+                },
+                async delete(tradeId) {
+                    try {
+                        const db = await open();
+                        return new Promise((resolve, reject) => {
+                            const tx = db.transaction('screenshots', 'readwrite');
+                            tx.objectStore('screenshots').delete(tradeId);
+                            tx.oncomplete = resolve;
+                            tx.onerror = () => reject(tx.error);
+                        });
+                    } catch (e) { console.error('screenshotDB.delete error', e); }
+                },
+            };
+        })();
+        // ─────────────────────────────────────────────────────────────────────
 
 export default function PortfolioTracker() {
             const [trades, setTrades] = useState([]);
@@ -100,6 +162,13 @@ export default function PortfolioTracker() {
                 exitDate: '', exitPrice: '', fees: '0', profit: '0', dividend: '0', notes: '', direction: 'long'
             });
             const [showPartialExit, setShowPartialExit] = useState(false);
+            // Screenshot state
+            const [screenshotBlob, setScreenshotBlob] = useState(null);       // blob held while modal is open
+            const [isPasteActive, setIsPasteActive] = useState(false);         // paste-ready mode toggle
+            const [screenshotIds, setScreenshotIds] = useState(new Set());     // set of tradeIds that have a screenshot
+            const [lightboxSrc, setLightboxSrc] = useState(null);              // object URL for lightbox preview
+            const screenshotFileRef = useRef(null);                            // hidden file input ref (add modal)
+            const screenshotFileEditRef = useRef(null);                        // hidden file input ref (edit modal)
             
             // Helper function to reset form to default values
             const resetFormData = () => {
@@ -761,6 +830,32 @@ export default function PortfolioTracker() {
                 setDividendAddDate(new Date().toISOString().split('T')[0]);
             }, [editingTrade?.id]);
 
+            // Scan IndexedDB to know which trades have screenshots (for camera icon in rows)
+            useEffect(() => {
+                if (!trades.length) { setScreenshotIds(new Set()); return; }
+                (async () => {
+                    const results = await Promise.all(trades.map(async (t) => {
+                        const blob = await screenshotDB.get(t.id);
+                        return blob ? t.id : null;
+                    }));
+                    setScreenshotIds(new Set(results.filter(Boolean)));
+                })();
+            }, [trades]);
+
+            // Paste listener — active only when isPasteActive is true and a modal is open
+            useEffect(() => {
+                if (!isPasteActive) return;
+                const handler = (e) => {
+                    const file = Array.from(e.clipboardData?.files || []).find(f => f.type.startsWith('image/'));
+                    if (!file) return;
+                    e.preventDefault();
+                    setScreenshotBlob(file);
+                    setIsPasteActive(false);
+                };
+                document.addEventListener('paste', handler);
+                return () => document.removeEventListener('paste', handler);
+            }, [isPasteActive]);
+
             const saveTrades = async (newTrades) => {
                 setTrades(newTrades);
                 await window.storage.set(`portfolio_trades_${activePortfolioId}`, JSON.stringify(newTrades));
@@ -956,13 +1051,21 @@ export default function PortfolioTracker() {
                     dividendEntries: []
                 };
                 await saveTrades([...tradesRef.current, newTrade]);
+                if (screenshotBlob) {
+                    await screenshotDB.save(newTrade.id, screenshotBlob);
+                    setScreenshotIds(prev => new Set([...prev, newTrade.id]));
+                }
                 setShowAddTrade(false);
+                setScreenshotBlob(null);
+                setIsPasteActive(false);
                 resetFormData();
             };
 
             const handleDeleteTrade = (id) => {
                 showConfirm('Delete Trade', 'Are you sure you want to delete this trade? This cannot be undone.', async () => {
                     await saveTrades(tradesRef.current.filter(t => t.id !== id));
+                    await screenshotDB.delete(id);
+                    setScreenshotIds(prev => { const s = new Set(prev); s.delete(id); return s; });
                 });
             };
 
@@ -1158,6 +1261,14 @@ export default function PortfolioTracker() {
                     notes: trade.notes,
                     direction: trade.direction || 'long'
                 });
+                // Load screenshot from IndexedDB if one exists
+                setScreenshotBlob(null);
+                setIsPasteActive(false);
+                if (screenshotIds.has(trade.id)) {
+                    screenshotDB.get(trade.id).then(blob => {
+                        if (blob) setScreenshotBlob(blob);
+                    });
+                }
                 setShowEditTrade(true);
             };
 
@@ -1189,8 +1300,19 @@ export default function PortfolioTracker() {
                     direction: formData.direction || 'long'
                 };
                 await saveTrades(tradesRef.current.map(t => t.id === editingTrade.id ? updatedTrade : t));
+                // Save, update, or remove screenshot in IndexedDB
+                if (screenshotBlob) {
+                    await screenshotDB.save(editingTrade.id, screenshotBlob);
+                    setScreenshotIds(prev => new Set([...prev, editingTrade.id]));
+                } else if (screenshotIds.has(editingTrade.id)) {
+                    // screenshotBlob was cleared by user — delete from DB
+                    await screenshotDB.delete(editingTrade.id);
+                    setScreenshotIds(prev => { const s = new Set(prev); s.delete(editingTrade.id); return s; });
+                }
                 setShowEditTrade(false);
                 setEditingTrade(null);
+                setScreenshotBlob(null);
+                setIsPasteActive(false);
                 setFormData({ symbol: '', name: '', qty: '', entryPrice: '', entryDate: new Date().toISOString().split('T')[0],
                     exitDate: '', exitPrice: '', fees: '0', profit: '0', dividend: '0', notes: '', direction: 'long' });
             };
@@ -2127,6 +2249,85 @@ export default function PortfolioTracker() {
                 );
             };
 
+            // ── Screenshot UI helpers ─────────────────────────────────────────
+            const handleScreenshotFile = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                setScreenshotBlob(file);
+                setIsPasteActive(false);
+                e.target.value = '';
+            };
+
+            const screenshotPreviewUrl = screenshotBlob
+                ? (screenshotBlob instanceof Blob ? URL.createObjectURL(screenshotBlob) : null)
+                : null;
+
+            const ScreenshotSection = ({ fileInputRef }) => (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.05em' }}>
+                        Screenshot
+                        <span style={{ color: T.textFaint, fontSize: '0.68rem', fontWeight: 400, marginLeft: '0.4rem', textTransform: 'none' }}>optional</span>
+                    </label>
+                    {!screenshotBlob ? (
+                        <div style={{ flex: 1, minHeight: '108px', border: `1px dashed ${isPasteActive ? T.blue : T.borderStrong}`, borderRadius: '4px', background: isPasteActive ? 'rgba(0,204,255,0.04)' : T.panelBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.65rem', padding: '0.65rem', transition: 'all 0.15s' }}>
+                            {isPasteActive ? (
+                                <>
+                                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,204,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.blue }}><ClipboardIcon size={14} /></div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ color: T.blue, fontSize: '0.72rem', fontWeight: '700', letterSpacing: '0.05em' }}>READY</div>
+                                        <div style={{ color: T.textMuted, fontSize: '0.65rem', marginTop: '0.2rem' }}>Press ⌘V / Ctrl+V</div>
+                                    </div>
+                                    <button onClick={() => setIsPasteActive(false)} style={{ fontSize: '0.62rem', color: T.textFaint, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>cancel</button>
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: T.raisedBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textFaint }}><CameraIcon size={14} /></div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', width: '100%' }}>
+                                        <button onClick={() => fileInputRef.current?.click()} style={{ width: '100%', padding: '0.45rem 0.4rem', background: T.raisedBg, border: `1px solid ${T.borderStrong}`, borderRadius: '3px', color: T.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.03em' }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = T.blue; e.currentTarget.style.color = T.blue; }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = T.borderStrong; e.currentTarget.style.color = T.textSecondary; }}>
+                                            <CameraIcon size={11} /> ATTACH FILE
+                                        </button>
+                                        <button onClick={() => setIsPasteActive(true)} style={{ width: '100%', padding: '0.45rem 0.4rem', background: T.raisedBg, border: `1px dashed ${T.borderStrong}`, borderRadius: '3px', color: T.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.03em' }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = T.blue; e.currentTarget.style.color = T.blue; }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = T.borderStrong; e.currentTarget.style.color = T.textSecondary; }}>
+                                            <ClipboardIcon size={11} /> PASTE
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                            <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }} onChange={handleScreenshotFile} />
+                        </div>
+                    ) : (
+                        <div style={{ flex: 1, minHeight: '108px', position: 'relative', border: `1px solid ${T.borderStrong}`, borderRadius: '4px', overflow: 'hidden', background: T.panelBg }}>
+                            <img src={screenshotPreviewUrl} alt="Trade screenshot" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.88))', padding: '1.2rem 0.45rem 0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ color: T.green, fontSize: '0.6rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: T.green, display: 'inline-block' }}/>ATTACHED
+                                </span>
+                                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                                    <button onClick={() => setLightboxSrc(screenshotPreviewUrl)} style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${T.borderStrong}`, borderRadius: '3px', color: T.textMuted, cursor: 'pointer', padding: '0.18rem 0.3rem', display: 'flex', alignItems: 'center' }} title="View full size">
+                                        <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                                    </button>
+                                    <button onClick={() => setScreenshotBlob(null)} style={{ background: 'rgba(0,0,0,0.5)', border: `1px solid ${T.red}`, borderRadius: '3px', color: T.red, cursor: 'pointer', padding: '0.18rem 0.35rem', fontSize: '0.58rem', fontWeight: '700' }}>REMOVE</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+
+            // Lightbox overlay
+            const Lightbox = () => lightboxSrc ? (
+                <div onClick={() => setLightboxSrc(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, cursor: 'zoom-out' }}>
+                    <div style={{ position: 'relative', maxWidth: '85vw', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+                        <img src={lightboxSrc} alt="Screenshot" style={{ maxWidth: '85vw', maxHeight: '85vh', borderRadius: '6px', border: `1px solid ${T.borderStrong}`, display: 'block' }} />
+                        <button onClick={() => setLightboxSrc(null)} style={{ position: 'absolute', top: -14, right: -14, width: 28, height: 28, borderRadius: '50%', background: T.raisedBg, border: `1px solid ${T.borderStrong}`, color: T.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '700' }}>✕</button>
+                    </div>
+                </div>
+            ) : null;
+            // ─────────────────────────────────────────────────────────────────
+
             const renderSharedModals = () => (<>
                 {confirmDialog && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: T.modalOverlay, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', zIndex: 1200 }}>
@@ -2154,7 +2355,7 @@ export default function PortfolioTracker() {
                         <div style={{ background: T.surfaceBg, borderRadius: '8px', padding: '2rem', maxWidth: '540px', width: '100%', border: `1px solid ${T.border}`, maxHeight: '90vh', overflow: 'auto' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
                                 <h3 style={{ margin: 0, fontSize: '1.5rem' }}>ADD TRADE</h3>
-                                <button onClick={() => { setShowAddTrade(false); resetFormData(); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
+                                <button onClick={() => { setShowAddTrade(false); resetFormData(); setScreenshotBlob(null); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.8fr 145px', gap: '1rem' }}>
@@ -2224,8 +2425,13 @@ export default function PortfolioTracker() {
                                     <div><label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Fees</label>
                                     <input type="number" step="0.01" value={formData.fees} onChange={(e) => setFormData({...formData, fees: e.target.value})} style={{ width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary }} /></div>
                                 </div>
-                                <div><label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Notes</label>
-                                <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary, minHeight: '80px', fontFamily: 'inherit' }} /></div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '1rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Notes</label>
+                                        <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ flex: 1, minHeight: '108px', width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary, fontFamily: 'inherit', resize: 'none' }} />
+                                    </div>
+                                    <ScreenshotSection fileInputRef={screenshotFileRef} />
+                                </div>
                                 <button onClick={handleAddTrade} disabled={!formData.symbol || !formData.qty || !formData.entryPrice || !formData.entryDate} style={{ background: (!formData.symbol || !formData.qty || !formData.entryPrice || !formData.entryDate) ? T.borderStrong : T.green, color: (!formData.symbol || !formData.qty || !formData.entryPrice || !formData.entryDate) ? T.textMuted : T.pageBg, border: 'none', padding: '1rem', borderRadius: '4px', cursor: (!formData.symbol || !formData.qty || !formData.entryPrice || !formData.entryDate) ? 'not-allowed' : 'pointer', fontWeight: '600', marginTop: '1rem' }}>ADD TRADE</button>
                             </div>
                         </div>
@@ -5758,6 +5964,17 @@ export default function PortfolioTracker() {
                                                 </td>
                                                 <td style={{ padding: '1rem', textAlign: 'center' }}>
                                                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                                        <button
+                                                            title={screenshotIds.has(trade.id) ? 'View screenshot' : 'No screenshot'}
+                                                            onClick={async () => {
+                                                                if (!screenshotIds.has(trade.id)) return;
+                                                                const blob = await screenshotDB.get(trade.id);
+                                                                if (blob) setLightboxSrc(URL.createObjectURL(blob));
+                                                            }}
+                                                            style={{ background: 'transparent', border: `1px solid ${screenshotIds.has(trade.id) ? T.green : T.borderStrong}`, color: screenshotIds.has(trade.id) ? T.green : T.textFaint, padding: '0.5rem', borderRadius: '4px', cursor: screenshotIds.has(trade.id) ? 'pointer' : 'default', opacity: screenshotIds.has(trade.id) ? 1 : 0.35, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                        >
+                                                            <CameraIcon size={16} />
+                                                        </button>
                                                         <button onClick={() => handleEditTrade(trade)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.blue, padding: '0.5rem', borderRadius: '4px', cursor: 'pointer' }} title="Edit"><Edit size={16} /></button>
                                                         <button onClick={() => handleDeleteTrade(trade.id)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.red, padding: '0.5rem', borderRadius: '4px', cursor: 'pointer' }} title="Delete"><Trash2 size={16} /></button>
                                                     </div>
@@ -5851,7 +6068,7 @@ export default function PortfolioTracker() {
                                             );
                                         })()}
                                     </div>
-                                    <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
+                                    <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); setScreenshotBlob(null); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.65fr', gap: '1rem' }}>
@@ -5930,8 +6147,13 @@ export default function PortfolioTracker() {
                                         <div><label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Fees</label>
                                         <input type="number" step="0.01" value={formData.fees} onChange={(e) => setFormData({...formData, fees: e.target.value})} style={{ width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary }} /></div>
                                     </div>
-                                    <div><label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Notes</label>
-                                    <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary, minHeight: '80px', fontFamily: 'inherit' }} /></div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '1rem' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Notes</label>
+                                            <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ flex: 1, minHeight: '108px', width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary, fontFamily: 'inherit', resize: 'none' }} />
+                                        </div>
+                                        <ScreenshotSection fileInputRef={screenshotFileEditRef} />
+                                    </div>
                                     
                                     {editingTrade && ((editingTrade.partialExits || []).length > 0 || (editingTrade.partialAdds || []).length > 0 || (editingTrade.dividendEntries || []).length > 0) && (() => {
                                         const allActivity = [
@@ -6122,6 +6344,7 @@ export default function PortfolioTracker() {
                         </div>
                     )}
                 {renderSharedModals()}
+                <Lightbox />
                 </div>
             );
         }
