@@ -5816,7 +5816,7 @@ export default function PortfolioTracker() {
                                                 Total Profit {sortColumn === 'totalProfit' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Status</th>
-                                            <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Actions</th>
+                                            <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -5997,8 +5997,8 @@ export default function PortfolioTracker() {
                                                         {isOpen ? 'OPEN' : (liveProfit >= -5 && liveProfit <= 5 ? 'EVEN' : (liveProfit > 5 ? 'WIN' : 'LOSS'))}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                                <td style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>
+                                                    <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center' }}>
                                                         <button
                                                             title={screenshotIds.has(trade.id) ? 'View screenshots' : 'No screenshot'}
                                                             onClick={async () => {
@@ -6009,12 +6009,12 @@ export default function PortfolioTracker() {
                                                                     setLightboxData({ srcs, index: 0 });
                                                                 }
                                                             }}
-                                                            style={{ background: 'transparent', border: `1px solid ${screenshotIds.has(trade.id) ? T.green : T.borderStrong}`, color: screenshotIds.has(trade.id) ? T.green : T.textFaint, padding: '0.5rem', borderRadius: '4px', cursor: screenshotIds.has(trade.id) ? 'pointer' : 'default', opacity: screenshotIds.has(trade.id) ? 1 : 0.35, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                            style={{ background: 'transparent', border: `1px solid ${screenshotIds.has(trade.id) ? T.green : T.borderStrong}`, color: screenshotIds.has(trade.id) ? T.green : T.textFaint, padding: '0.4rem', borderRadius: '4px', cursor: screenshotIds.has(trade.id) ? 'pointer' : 'default', opacity: screenshotIds.has(trade.id) ? 1 : 0.35, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                         >
-                                                            <CameraIcon size={16} />
+                                                            <CameraIcon size={14} />
                                                         </button>
-                                                        <button onClick={() => handleEditTrade(trade)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.blue, padding: '0.5rem', borderRadius: '4px', cursor: 'pointer' }} title="Edit"><Edit size={16} /></button>
-                                                        <button onClick={() => handleDeleteTrade(trade.id)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.red, padding: '0.5rem', borderRadius: '4px', cursor: 'pointer' }} title="Delete"><Trash2 size={16} /></button>
+                                                        <button onClick={() => handleEditTrade(trade)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.blue, padding: '0.4rem', borderRadius: '4px', cursor: 'pointer' }} title="Edit"><Edit size={14} /></button>
+                                                        <button onClick={() => handleDeleteTrade(trade.id)} style={{ background: 'transparent', border: `1px solid ${T.borderStrong}`, color: T.red, padding: '0.4rem', borderRadius: '4px', cursor: 'pointer' }} title="Delete"><Trash2 size={14} /></button>
                                                     </div>
                                                 </td>
                                             </tr>
