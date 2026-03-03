@@ -2339,31 +2339,28 @@ export default function PortfolioTracker() {
                 );
             };
 
-            // Lightbox gallery overlay
-            const Lightbox = () => {
-                if (!lightboxData) return null;
+            // Lightbox gallery — inlined as JSX to avoid component remount on index change
+            const lightboxJSX = lightboxData ? (() => {
                 const { srcs, index } = lightboxData;
                 const total = srcs.length;
-                const prev = () => setLightboxData(d => ({ ...d, index: (d.index - 1 + total) % total }));
-                const next = () => setLightboxData(d => ({ ...d, index: (d.index + 1) % total }));
+                const goPrev = (e) => { e.stopPropagation(); setLightboxData(d => ({ ...d, index: (d.index - 1 + total) % total })); };
+                const goNext = (e) => { e.stopPropagation(); setLightboxData(d => ({ ...d, index: (d.index + 1) % total })); };
                 return (
                     <div onClick={() => setLightboxData(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-                        <div style={{ position: 'relative', maxWidth: '85vw', maxHeight: '85vh', display: 'flex', alignItems: 'center', gap: '1rem' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ position: 'relative', maxWidth: '85vw', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+                            <img src={srcs[index]} alt={`Screenshot ${index + 1}`} style={{ maxWidth: '85vw', maxHeight: '85vh', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', display: 'block' }} />
                             {total > 1 && (
-                                <button onClick={prev} style={{ position: 'absolute', left: -44, width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: `1px solid rgba(255,255,255,0.15)`, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', zIndex: 1 }}>‹</button>
+                                <>
+                                    <button onClick={goPrev} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', zIndex: 1, lineHeight: 1 }}>‹</button>
+                                    <button onClick={goNext} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', zIndex: 1, lineHeight: 1 }}>›</button>
+                                    <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.55)', borderRadius: '10px', padding: '0.15rem 0.6rem', color: 'rgba(255,255,255,0.7)', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>{index + 1} / {total}</div>
+                                </>
                             )}
-                            <img src={srcs[index]} alt={`Screenshot ${index + 1}`} style={{ maxWidth: '85vw', maxHeight: '85vh', borderRadius: '6px', border: `1px solid rgba(255,255,255,0.1)`, display: 'block' }} />
-                            {total > 1 && (
-                                <button onClick={next} style={{ position: 'absolute', right: -44, width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: `1px solid rgba(255,255,255,0.15)`, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', zIndex: 1 }}>›</button>
-                            )}
-                            <div style={{ position: 'absolute', bottom: -28, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
-                                {total > 1 ? `${index + 1} / ${total}` : ''}
-                            </div>
-                            <button onClick={() => setLightboxData(null)} style={{ position: 'absolute', top: -14, right: -14, width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,30,30,0.9)', border: `1px solid rgba(255,255,255,0.15)`, color: '#aaa', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '700' }}>✕</button>
+                            <button onClick={() => setLightboxData(null)} style={{ position: 'absolute', top: -14, right: -14, width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,30,30,0.9)', border: '1px solid rgba(255,255,255,0.15)', color: '#aaa', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '700' }}>✕</button>
                         </div>
                     </div>
                 );
-            };
+            })() : null;
             // ─────────────────────────────────────────────────────────────────
 
             const renderSharedModals = () => (<>
@@ -6385,7 +6382,7 @@ export default function PortfolioTracker() {
                         </div>
                     )}
                 {renderSharedModals()}
-                <Lightbox />
+                {lightboxJSX}
                 </div>
             );
         }
