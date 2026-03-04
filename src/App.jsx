@@ -6606,6 +6606,7 @@ export default function PortfolioTracker() {
                                 })()}
                             </div>
                         </div>
+                    </div>
                 </>);
             }
 }
