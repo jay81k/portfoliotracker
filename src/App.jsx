@@ -825,8 +825,10 @@ export default function PortfolioTracker() {
             };
 
             const saveJournalNotes = async (tradeId, newNotes) => {
-                const updated = tradesRef.current.map(t => t.id === tradeId ? { ...t, notes: newNotes } : t);
+                const updatedTrade = { ...tradesRef.current.find(t => t.id === tradeId), notes: newNotes };
+                const updated = tradesRef.current.map(t => t.id === tradeId ? updatedTrade : t);
                 await saveTrades(updated);
+                setJournalSelected(updatedTrade);
                 showToast('success', 'Saved', 'Journal notes updated.');
             };
 
@@ -6592,7 +6594,7 @@ export default function PortfolioTracker() {
                                             {/* Notes */}
                                             <div style={{ marginBottom: '22px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                                                    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.68rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Notes</div>
+                                                    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.75rem', fontWeight: '800', color: T.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notes</div>
                                                     <button
                                                         onClick={() => setJournalEditingNotes(prev => prev === t.id ? null : t.id)}
                                                         title={journalEditingNotes === t.id ? 'Cancel editing' : 'Edit notes'}
@@ -6616,7 +6618,7 @@ export default function PortfolioTracker() {
                                                             <button
                                                                 onClick={() => {
                                                                     const el = document.getElementById(`journal-notes-${t.id}`);
-                                                                    if (el) { saveJournalNotes(t.id, el.value); setJournalEditingNotes(null); setJournalSelected(null); }
+                                                                    if (el) { saveJournalNotes(t.id, el.value); setJournalEditingNotes(null); }
                                                                 }}
                                                                 style={{ padding: '6px 18px', background: T.green, border: 'none', borderRadius: '5px', color: isDark ? '#000' : '#fff', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' }}>
                                                                 Save
