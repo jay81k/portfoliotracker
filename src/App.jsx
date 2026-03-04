@@ -6576,7 +6576,7 @@ export default function PortfolioTracker() {
                                                     { label: 'Return',     value: profitPct != null ? `${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(2)}%` : '—', color: profitPct != null ? (isWin ? T.green : T.red) : T.textFaint },
                                                 ].map((s, i, arr) => (
                                                     <div key={s.label} style={{ flex: 1, padding: '10px 13px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.surfaceBg }}>
-                                                        <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.62rem', fontWeight: '700', color: T.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{s.label}</div>
+                                                        <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{s.label}</div>
                                                         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.85rem', fontWeight: '500', color: s.color || T.textPrimary, whiteSpace: 'nowrap' }}>{s.value}</div>
                                                     </div>
                                                 ))}
