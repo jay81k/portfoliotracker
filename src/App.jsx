@@ -160,6 +160,10 @@ export default function PortfolioTracker() {
             const [dividendAddActive, setDividendAddActive] = useState(false);
             const [dividendAddDate, setDividendAddDate] = useState(new Date().toISOString().split('T')[0]);
             const [expandedTrade, setExpandedTrade] = useState(null);
+            const [journalSearch, setJournalSearch] = useState('');
+            const [journalFilter, setJournalFilter] = useState('all');
+            const [journalActiveTag, setJournalActiveTag] = useState(null);
+            const [journalSelected, setJournalSelected] = useState(null);
             const [sortColumn, setSortColumn] = useState(null);
             const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
             const [searchTerm, setSearchTerm] = useState('');
@@ -1953,6 +1957,11 @@ export default function PortfolioTracker() {
                                     <rect x="3" y="12" width="4" height="9" rx="1"/>
                                     <rect x="10" y="7" width="4" height="14" rx="1"/>
                                     <rect x="17" y="3" width="4" height="18" rx="1"/>
+                                </svg>
+                            } />
+                            <NavItem label="Journal" target="journal" icon={
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
                                 </svg>
                             } />
 
@@ -6347,3 +6356,257 @@ export default function PortfolioTracker() {
             );
         }
 
+
+            // ── Journal View ──────────────────────────────────────
+            if (view === 'journal') {
+                const journalTrades = (portfolioViewMode === 'all' && portfolios.length > 1 ? allPortfolioTrades : trades)
+                    .filter(t => t.notes && t.notes.trim().length > 0);
+
+                const extractTags = (text) => (text.match(/#\w+/g) || []).map(t => t.toLowerCase());
+                const allTags = [...new Set(journalTrades.flatMap(t => extractTags(t.notes || '')))].sort();
+
+                const getOutcome = (t) => {
+                    if (!t.exitDate) return 'open';
+                    const p = getEffectiveProfit(t);
+                    return p > 0 ? 'win' : p < 0 ? 'loss' : 'even';
+                };
+
+                const filteredJournal = journalTrades.filter(t => {
+                    const outcome = getOutcome(t);
+                    const matchesOutcome = journalFilter === 'all' || outcome === journalFilter;
+                    const matchesTag = !journalActiveTag || extractTags(t.notes || '').includes(journalActiveTag);
+                    const q = journalSearch.toLowerCase();
+                    const matchesSearch = !q || (t.symbol || '').toLowerCase().includes(q)
+                        || (t.name || '').toLowerCase().includes(q)
+                        || (t.notes || '').toLowerCase().includes(q);
+                    return matchesOutcome && matchesTag && matchesSearch;
+                }).sort((a, b) => {
+                    const da = a.exitDate || a.entryDate;
+                    const db = b.exitDate || b.entryDate;
+                    return db > da ? 1 : -1;
+                });
+
+                const handleJournalTagClick = (tag) => {
+                    setJournalActiveTag(prev => prev === tag ? null : tag);
+                };
+
+                const activeEntry = journalSelected || filteredJournal[0] || null;
+
+                const NoteText = ({ text, size }) => {
+                    const parts = text.split(/(#\w+)/g);
+                    return (
+                        <span style={{ fontSize: size || '0.875rem', color: T.textSecondary, lineHeight: '1.75', whiteSpace: 'pre-wrap' }}>
+                            {parts.map((part, i) =>
+                                part.startsWith('#') ? (
+                                    <span key={i} onClick={(e) => { e.stopPropagation(); handleJournalTagClick(part.toLowerCase()); }}
+                                        style={{ color: isDark ? '#a78bfa' : '#7c3aed', fontWeight: '600', cursor: 'pointer',
+                                            background: isDark ? 'rgba(167,139,250,0.12)' : 'rgba(124,58,237,0.09)',
+                                            borderRadius: '3px', padding: '0 3px', fontSize: '0.82rem' }}
+                                        title={`Filter by ${part}`}>{part}</span>
+                                ) : <span key={i}>{part}</span>
+                            )}
+                        </span>
+                    );
+                };
+
+                const purpleColor = isDark ? '#a78bfa' : '#7c3aed';
+                const purpleBg    = isDark ? 'rgba(167,139,250,0.12)' : 'rgba(124,58,237,0.09)';
+                const purpleBorder= isDark ? 'rgba(167,139,250,0.25)' : 'rgba(124,58,237,0.2)';
+
+                return (
+                    <div style={{ marginLeft: '220px', height: '100vh', display: 'flex', flexDirection: 'column', background: T.pageBg, color: T.textPrimary, overflow: 'hidden' }}>
+                        {renderSidebar()}
+                        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+                            {/* ── Left sidebar ── */}
+                            <div style={{ width: '280px', flexShrink: 0, borderRight: `1px solid ${T.border}`, background: T.panelBg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+                                {/* Header + search + filters */}
+                                <div style={{ padding: '14px', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
+                                    <div style={{ fontSize: '0.62rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMuted, marginBottom: '10px' }}>Trade Journal</div>
+
+                                    {/* Search */}
+                                    <div style={{ position: 'relative', marginBottom: '8px' }}>
+                                        <span style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: T.textFaint, fontSize: '12px', pointerEvents: 'none' }}>⌕</span>
+                                        <input value={journalSearch} onChange={e => setJournalSearch(e.target.value)}
+                                            placeholder="Search notes, #tags, symbols..."
+                                            style={{ width: '100%', padding: '6px 9px 6px 26px', fontSize: '0.78rem', border: `1px solid ${T.border}`, borderRadius: '5px', background: T.surfaceBg, color: T.textPrimary, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                                    </div>
+
+                                    {/* Outcome filters */}
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        {[{id:'all',label:'All'},{id:'open',label:'Open'},{id:'win',label:'Wins'},{id:'loss',label:'Losses'}].map(f => (
+                                            <button key={f.id} onClick={() => { setJournalFilter(f.id); setJournalActiveTag(null); }} style={{
+                                                flex: 1, padding: '3px 0', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.05em',
+                                                border: `1px solid ${journalFilter === f.id && !journalActiveTag ? T.green : T.border}`,
+                                                borderRadius: '4px', cursor: 'pointer',
+                                                background: journalFilter === f.id && !journalActiveTag ? (isDark ? 'rgba(0,255,136,0.07)' : 'rgba(5,150,105,0.07)') : 'transparent',
+                                                color: journalFilter === f.id && !journalActiveTag ? T.green : T.textMuted,
+                                            }}>{f.label}</button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Tag strip */}
+                                {allTags.length > 0 && (
+                                    <div style={{ padding: '8px 14px', borderBottom: `1px solid ${T.border}`, display: 'flex', flexWrap: 'wrap', gap: '4px', flexShrink: 0 }}>
+                                        {allTags.slice(0, 10).map(tag => (
+                                            <span key={tag} onClick={() => handleJournalTagClick(tag)}
+                                                style={{ fontSize: '0.68rem', fontWeight: '600', cursor: 'pointer',
+                                                    color: journalActiveTag === tag ? purpleColor : T.textFaint,
+                                                    background: journalActiveTag === tag ? purpleBg : 'transparent',
+                                                    border: `1px solid ${journalActiveTag === tag ? purpleBorder : T.border}`,
+                                                    padding: '2px 7px', borderRadius: '20px', transition: 'all 0.1s' }}>
+                                                {tag}
+                                            </span>
+                                        ))}
+                                        {journalActiveTag && (
+                                            <span onClick={() => setJournalActiveTag(null)}
+                                                style={{ fontSize: '0.68rem', fontWeight: '600', cursor: 'pointer', color: purpleColor, marginLeft: 'auto' }}>✕ clear</span>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Count */}
+                                <div style={{ padding: '5px 14px', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
+                                    <span style={{ fontSize: '0.68rem', color: T.textFaint }}>{filteredJournal.length} {filteredJournal.length === 1 ? 'entry' : 'entries'}</span>
+                                </div>
+
+                                {/* Entry list */}
+                                <div style={{ overflowY: 'auto', flex: 1 }}>
+                                    {filteredJournal.length === 0 ? (
+                                        <div style={{ padding: '24px 14px', textAlign: 'center', color: T.textFaint, fontSize: '0.78rem' }}>
+                                            {journalTrades.length === 0 ? 'No trades with notes yet' : 'No entries match'}
+                                        </div>
+                                    ) : filteredJournal.map(t => {
+                                        const outcome = getOutcome(t);
+                                        const isActive = activeEntry?.id === t.id;
+                                        const outcomeColor = outcome === 'win' ? T.green : outcome === 'loss' ? T.red : T.blue;
+                                        const outcomeBg    = outcome === 'win' ? (isDark ? 'rgba(0,255,136,0.12)' : 'rgba(5,150,105,0.1)') : outcome === 'loss' ? (isDark ? 'rgba(255,68,68,0.12)' : 'rgba(220,38,38,0.08)') : (isDark ? 'rgba(0,204,255,0.12)' : 'rgba(2,132,199,0.1)');
+                                        return (
+                                            <div key={t.id} onClick={() => setJournalSelected(t)}
+                                                style={{ padding: '11px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer',
+                                                    background: isActive ? T.surfaceBg : T.panelBg,
+                                                    borderLeft: `2px solid ${isActive ? T.green : 'transparent'}`, transition: 'background 0.1s' }}
+                                                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = T.surfaceBg; }}
+                                                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = T.panelBg; }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.82rem', fontWeight: '600', color: T.textPrimary }}>{t.symbol}</span>
+                                                        <span style={{ fontSize: '0.62rem', fontWeight: '700', letterSpacing: '0.06em', color: outcomeColor, background: outcomeBg, padding: '1px 6px', borderRadius: '20px', textTransform: 'uppercase' }}>
+                                                            {outcome === 'open' ? 'OPEN' : outcome === 'win' ? 'WIN' : 'LOSS'}
+                                                        </span>
+                                                        {t.direction === 'short' && (
+                                                            <span style={{ fontSize: '0.62rem', fontWeight: '700', letterSpacing: '0.06em', color: T.amber, background: isDark ? 'rgba(255,170,0,0.12)' : 'rgba(217,119,6,0.1)', padding: '1px 6px', borderRadius: '20px' }}>SHORT</span>
+                                                        )}
+                                                    </div>
+                                                    <span style={{ fontSize: '0.68rem', color: T.textFaint }}>{t.exitDate || t.entryDate}</span>
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: T.textSecondary, lineHeight: '1.4',
+                                                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                    {(t.notes || '').replace(/#\w+/g, m => m)}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* ── Detail panel ── */}
+                            <div style={{ flex: 1, background: T.panelBg, overflowY: 'auto' }}>
+                                {!activeEntry ? (
+                                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textFaint, fontSize: '0.82rem' }}>
+                                        Select an entry to read
+                                    </div>
+                                ) : (() => {
+                                    const t = activeEntry;
+                                    const outcome = getOutcome(t);
+                                    const isWin  = outcome === 'win';
+                                    const isLoss = outcome === 'loss';
+                                    const isOpen = outcome === 'open';
+                                    const profit = t.exitPrice != null
+                                        ? (t.direction === 'short'
+                                            ? (t.entryPrice - t.exitPrice) * t.qty
+                                            : (t.exitPrice - t.entryPrice) * t.qty)
+                                        : null;
+                                    const profitPct = profit != null ? (profit / (t.entryPrice * t.qty)) * 100 : null;
+                                    const holdDays = t.exitDate
+                                        ? Math.round((new Date(t.exitDate) - new Date(t.entryDate)) / 86400000)
+                                        : Math.round((new Date() - new Date(t.entryDate)) / 86400000);
+                                    const outcomeColor = isWin ? T.green : isLoss ? T.red : T.blue;
+                                    const outcomeBg    = isWin ? (isDark ? 'rgba(0,255,136,0.12)' : 'rgba(5,150,105,0.1)') : isLoss ? (isDark ? 'rgba(255,68,68,0.12)' : 'rgba(220,38,38,0.08)') : (isDark ? 'rgba(0,204,255,0.12)' : 'rgba(2,132,199,0.1)');
+                                    const tags = extractTags(t.notes || '');
+
+                                    return (
+                                        <div style={{ padding: '28px 32px', maxWidth: '760px' }}>
+
+                                            {/* Header */}
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '3px' }}>
+                                                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.3rem', fontWeight: '700', color: T.textPrimary }}>{t.symbol}</span>
+                                                        <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.07em', color: outcomeColor, background: outcomeBg, padding: '2px 8px', borderRadius: '20px', textTransform: 'uppercase' }}>
+                                                            {isOpen ? 'OPEN' : isWin ? 'WIN' : 'LOSS'}
+                                                        </span>
+                                                        {t.direction === 'short' && (
+                                                            <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.07em', color: T.amber, background: isDark ? 'rgba(255,170,0,0.12)' : 'rgba(217,119,6,0.1)', padding: '2px 8px', borderRadius: '20px' }}>SHORT</span>
+                                                        )}
+                                                    </div>
+                                                    <span style={{ fontSize: '0.8rem', color: T.textMuted }}>{t.name || ''}</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => { setEditingTrade(t); setShowEditTrade(true); }}
+                                                    style={{ fontSize: '0.75rem', fontWeight: '600', color: T.textMuted, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '5px 11px', cursor: 'pointer', letterSpacing: '0.04em', flexShrink: 0, fontFamily: 'inherit' }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = T.green; e.currentTarget.style.borderColor = T.green; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}>
+                                                    ↗ View Trade
+                                                </button>
+                                            </div>
+
+                                            {/* Compact single-row stats */}
+                                            <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden', marginBottom: '20px' }}>
+                                                {[
+                                                    { label: 'Qty',        value: t.qty },
+                                                    { label: 'Entry',      value: `$${t.entryPrice.toFixed(2)}` },
+                                                    { label: 'Exit',       value: t.exitPrice ? `$${t.exitPrice.toFixed(2)}` : '—' },
+                                                    { label: 'Entry Date', value: t.entryDate },
+                                                    { label: 'Exit Date',  value: t.exitDate || '—' },
+                                                    { label: 'Hold',       value: `${holdDays}d` },
+                                                    { label: 'Direction',  value: t.direction === 'long' ? 'Long' : 'Short' },
+                                                    { label: 'Net Profit', value: profit != null ? `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}` : '—', color: profit != null ? (isWin ? T.green : T.red) : T.textFaint },
+                                                    { label: 'Return',     value: profitPct != null ? `${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(2)}%` : '—', color: profitPct != null ? (isWin ? T.green : T.red) : T.textFaint },
+                                                ].map((s, i, arr) => (
+                                                    <div key={s.label} style={{ flex: 1, padding: '7px 10px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.surfaceBg }}>
+                                                        <div style={{ fontSize: '0.62rem', fontWeight: '600', color: T.textFaint, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '3px', whiteSpace: 'nowrap' }}>{s.label}</div>
+                                                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.76rem', fontWeight: '500', color: s.color || T.textPrimary, whiteSpace: 'nowrap' }}>{s.value}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Notes */}
+                                            <div style={{ marginBottom: '18px' }}>
+                                                <div style={{ fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Notes</div>
+                                                <NoteText text={t.notes || ''} />
+                                            </div>
+
+                                            {/* Tags */}
+                                            {tags.length > 0 && (
+                                                <div style={{ paddingTop: '14px', borderTop: `1px solid ${T.border}`, display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                                    {tags.map(tag => (
+                                                        <span key={tag} onClick={() => handleJournalTagClick(tag)}
+                                                            style={{ fontSize: '0.72rem', fontWeight: '600', color: purpleColor, background: purpleBg, border: `1px solid ${purpleBorder}`, padding: '3px 10px', borderRadius: '20px', cursor: 'pointer' }}
+                                                            onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+                                                            onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
