@@ -1950,7 +1950,7 @@ export default function PortfolioTracker() {
 
                             <SectionLabel text="Navigation" />
                             <NavItem label="Dashboard" target="dashboard" icon="◈" />
-                            <NavItem label="Trades" target="dashboard" icon="⊞" />
+                            <NavItem label="Trades" target="trades" icon="⊞" />
                             <NavItem label="Calendar" target="calendar" icon="▦" />
                             <NavItem label="Analytics" target="stats" icon={
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -5600,7 +5600,7 @@ export default function PortfolioTracker() {
             const toastColors = { success: '#00ff88', error: '#ff4444', warning: '#ffaa00', info: '#00aadd' };
             const toastIcons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
 
-            return (
+            if (view === 'trades') return (
                 <div style={{ minHeight: '100vh', padding: '2rem', background: T.pageBg, color: T.textPrimary, marginLeft: '220px' }}>
                     {renderSidebar()}
                     <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
