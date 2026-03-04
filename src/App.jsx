@@ -6451,11 +6451,11 @@ export default function PortfolioTracker() {
                                     <div style={{ padding: '8px 14px', borderBottom: `1px solid ${T.border}`, display: 'flex', flexWrap: 'wrap', gap: '4px', flexShrink: 0 }}>
                                         {allTags.slice(0, 10).map(tag => (
                                             <span key={tag} onClick={() => handleJournalTagClick(tag)}
-                                                style={{ fontSize: '0.68rem', fontWeight: '600', cursor: 'pointer',
-                                                    color: journalActiveTag === tag ? purpleColor : T.textFaint,
+                                                style={{ fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer',
+                                                    color: journalActiveTag === tag ? purpleColor : T.textSecondary,
                                                     background: journalActiveTag === tag ? purpleBg : 'transparent',
-                                                    border: `1px solid ${journalActiveTag === tag ? purpleBorder : T.border}`,
-                                                    padding: '2px 7px', borderRadius: '20px', transition: 'all 0.1s' }}>
+                                                    border: `1px solid ${journalActiveTag === tag ? purpleBorder : T.borderStrong}`,
+                                                    padding: '2px 8px', borderRadius: '20px', transition: 'all 0.1s' }}>
                                                 {tag}
                                             </span>
                                         ))}
