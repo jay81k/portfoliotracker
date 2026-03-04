@@ -6491,7 +6491,7 @@ export default function PortfolioTracker() {
                                                 onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = T.panelBg; }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.82rem', fontWeight: '600', color: T.textPrimary }}>{t.symbol}</span>
+                                                        <span style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.88rem', fontWeight: '700', color: T.textPrimary, letterSpacing: '0.01em' }}>{t.symbol}</span>
                                                         <span style={{ fontSize: '0.62rem', fontWeight: '700', letterSpacing: '0.06em', color: outcomeColor, background: outcomeBg, padding: '1px 6px', borderRadius: '20px', textTransform: 'uppercase' }}>
                                                             {outcome === 'open' ? 'OPEN' : outcome === 'win' ? 'WIN' : 'LOSS'}
                                                         </span>
@@ -6543,7 +6543,7 @@ export default function PortfolioTracker() {
                                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
                                                 <div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                                                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.6rem', fontWeight: '700', color: T.textPrimary, letterSpacing: '0.03em' }}>{t.symbol}</span>
+                                                        <span style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '1.6rem', fontWeight: '700', color: T.textPrimary, letterSpacing: '0.01em' }}>{t.symbol}</span>
                                                         <span style={{ fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.08em', color: outcomeColor, background: outcomeBg, padding: '3px 10px', borderRadius: '20px', textTransform: 'uppercase' }}>
                                                             {isOpen ? 'OPEN' : isWin ? 'WIN' : 'LOSS'}
                                                         </span>
