@@ -6394,13 +6394,13 @@ export default function PortfolioTracker() {
                 const NoteText = ({ text, size }) => {
                     const parts = text.split(/(#\w+)/g);
                     return (
-                        <span style={{ fontSize: size || '0.875rem', color: T.textSecondary, lineHeight: '1.75', whiteSpace: 'pre-wrap' }}>
+                        <span style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: size || '0.95rem', color: T.textSecondary, lineHeight: '1.8', whiteSpace: 'pre-wrap' }}>
                             {parts.map((part, i) =>
                                 part.startsWith('#') ? (
                                     <span key={i} onClick={(e) => { e.stopPropagation(); handleJournalTagClick(part.toLowerCase()); }}
                                         style={{ color: isDark ? '#a78bfa' : '#7c3aed', fontWeight: '600', cursor: 'pointer',
                                             background: isDark ? 'rgba(167,139,250,0.12)' : 'rgba(124,58,237,0.09)',
-                                            borderRadius: '3px', padding: '0 3px', fontSize: '0.82rem' }}
+                                            borderRadius: '3px', padding: '0 3px', fontSize: '0.88rem' }}
                                         title={`Filter by ${part}`}>{part}</span>
                                 ) : <span key={i}>{part}</span>
                             )}
@@ -6537,33 +6537,33 @@ export default function PortfolioTracker() {
                                     const tags = extractTags(t.notes || '');
 
                                     return (
-                                        <div style={{ padding: '28px 32px', maxWidth: '760px' }}>
+                                        <div style={{ padding: '32px 36px', maxWidth: '860px' }}>
 
                                             {/* Header */}
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
                                                 <div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '3px' }}>
-                                                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.3rem', fontWeight: '700', color: T.textPrimary }}>{t.symbol}</span>
-                                                        <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.07em', color: outcomeColor, background: outcomeBg, padding: '2px 8px', borderRadius: '20px', textTransform: 'uppercase' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                                                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.6rem', fontWeight: '700', color: T.textPrimary, letterSpacing: '0.03em' }}>{t.symbol}</span>
+                                                        <span style={{ fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.08em', color: outcomeColor, background: outcomeBg, padding: '3px 10px', borderRadius: '20px', textTransform: 'uppercase' }}>
                                                             {isOpen ? 'OPEN' : isWin ? 'WIN' : 'LOSS'}
                                                         </span>
                                                         {t.direction === 'short' && (
-                                                            <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.07em', color: T.amber, background: isDark ? 'rgba(255,170,0,0.12)' : 'rgba(217,119,6,0.1)', padding: '2px 8px', borderRadius: '20px' }}>SHORT</span>
+                                                            <span style={{ fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.08em', color: T.amber, background: isDark ? 'rgba(255,170,0,0.12)' : 'rgba(217,119,6,0.1)', padding: '3px 10px', borderRadius: '20px' }}>SHORT</span>
                                                         )}
                                                     </div>
-                                                    <span style={{ fontSize: '0.8rem', color: T.textMuted }}>{t.name || ''}</span>
+                                                    <span style={{ fontSize: '0.88rem', color: T.textMuted, fontWeight: '400' }}>{t.name || ''}</span>
                                                 </div>
                                                 <button
                                                     onClick={() => { handleEditTrade(t); setView('trades'); }}
-                                                    style={{ fontSize: '0.75rem', fontWeight: '600', color: T.textMuted, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '5px 11px', cursor: 'pointer', letterSpacing: '0.04em', flexShrink: 0, fontFamily: 'inherit' }}
+                                                    style={{ fontSize: '0.8rem', fontWeight: '600', color: T.textMuted, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '7px 14px', cursor: 'pointer', letterSpacing: '0.04em', flexShrink: 0, fontFamily: 'inherit', transition: 'all 0.12s' }}
                                                     onMouseEnter={e => { e.currentTarget.style.color = T.green; e.currentTarget.style.borderColor = T.green; }}
                                                     onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}>
                                                     ↗ View Trade
                                                 </button>
                                             </div>
 
-                                            {/* Compact single-row stats */}
-                                            <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden', marginBottom: '20px' }}>
+                                            {/* Stats row */}
+                                            <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '7px', overflow: 'hidden', marginBottom: '24px' }}>
                                                 {[
                                                     { label: 'Qty',        value: t.qty },
                                                     { label: 'Entry',      value: `$${t.entryPrice.toFixed(2)}` },
@@ -6575,25 +6575,25 @@ export default function PortfolioTracker() {
                                                     { label: 'Net Profit', value: profit != null ? `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}` : '—', color: profit != null ? (isWin ? T.green : T.red) : T.textFaint },
                                                     { label: 'Return',     value: profitPct != null ? `${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(2)}%` : '—', color: profitPct != null ? (isWin ? T.green : T.red) : T.textFaint },
                                                 ].map((s, i, arr) => (
-                                                    <div key={s.label} style={{ flex: 1, padding: '7px 10px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.surfaceBg }}>
-                                                        <div style={{ fontSize: '0.62rem', fontWeight: '600', color: T.textFaint, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '3px', whiteSpace: 'nowrap' }}>{s.label}</div>
-                                                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.76rem', fontWeight: '500', color: s.color || T.textPrimary, whiteSpace: 'nowrap' }}>{s.value}</div>
+                                                    <div key={s.label} style={{ flex: 1, padding: '10px 13px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.surfaceBg }}>
+                                                        <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.62rem', fontWeight: '700', color: T.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{s.label}</div>
+                                                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.85rem', fontWeight: '500', color: s.color || T.textPrimary, whiteSpace: 'nowrap' }}>{s.value}</div>
                                                     </div>
                                                 ))}
                                             </div>
 
                                             {/* Notes */}
-                                            <div style={{ marginBottom: '18px' }}>
-                                                <div style={{ fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Notes</div>
+                                            <div style={{ marginBottom: '22px' }}>
+                                                <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.68rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>Notes</div>
                                                 <NoteText text={t.notes || ''} />
                                             </div>
 
                                             {/* Tags */}
                                             {tags.length > 0 && (
-                                                <div style={{ paddingTop: '14px', borderTop: `1px solid ${T.border}`, display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                                <div style={{ paddingTop: '16px', borderTop: `1px solid ${T.border}`, display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                                     {tags.map(tag => (
                                                         <span key={tag} onClick={() => handleJournalTagClick(tag)}
-                                                            style={{ fontSize: '0.72rem', fontWeight: '600', color: purpleColor, background: purpleBg, border: `1px solid ${purpleBorder}`, padding: '3px 10px', borderRadius: '20px', cursor: 'pointer' }}
+                                                            style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.76rem', fontWeight: '600', color: purpleColor, background: purpleBg, border: `1px solid ${purpleBorder}`, padding: '4px 12px', borderRadius: '20px', cursor: 'pointer' }}
                                                             onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
                                                             onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
                                                             {tag}
