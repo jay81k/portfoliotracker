@@ -1950,7 +1950,7 @@ export default function PortfolioTracker() {
 
                             <SectionLabel text="Navigation" />
                             <NavItem label="Dashboard" target="dashboard" icon="◈" />
-                            <NavItem label="Trades" target="trades" icon="⊞" />
+                            <NavItem label="Trades" target="dashboard" icon="⊞" />
                             <NavItem label="Calendar" target="calendar" icon="▦" />
                             <NavItem label="Analytics" target="stats" icon={
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
