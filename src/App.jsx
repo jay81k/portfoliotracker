@@ -6591,14 +6591,15 @@ export default function PortfolioTracker() {
 
                                             {/* Notes */}
                                             <div style={{ marginBottom: '22px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                                                     <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.68rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Notes</div>
                                                     <button
                                                         onClick={() => setJournalEditingNotes(prev => prev === t.id ? null : t.id)}
-                                                        style={{ fontSize: '0.7rem', fontWeight: '600', color: journalEditingNotes === t.id ? T.green : T.textMuted, background: 'transparent', border: `1px solid ${journalEditingNotes === t.id ? T.green : T.border}`, borderRadius: '4px', padding: '2px 9px', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s' }}
-                                                        onMouseEnter={e => { e.currentTarget.style.color = T.green; e.currentTarget.style.borderColor = T.green; }}
-                                                        onMouseLeave={e => { if (journalEditingNotes !== t.id) { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; } }}>
-                                                        {journalEditingNotes === t.id ? 'Cancel' : '✎ Edit'}
+                                                        title={journalEditingNotes === t.id ? 'Cancel editing' : 'Edit notes'}
+                                                        style={{ background: 'transparent', border: 'none', padding: '1px 3px', cursor: 'pointer', color: journalEditingNotes === t.id ? T.green : T.textMuted, lineHeight: 1, transition: 'color 0.12s', fontSize: '0.85rem' }}
+                                                        onMouseEnter={e => e.currentTarget.style.color = T.green}
+                                                        onMouseLeave={e => { if (journalEditingNotes !== t.id) e.currentTarget.style.color = T.textMuted; }}>
+                                                        ✎
                                                     </button>
                                                 </div>
                                                 {journalEditingNotes === t.id ? (
