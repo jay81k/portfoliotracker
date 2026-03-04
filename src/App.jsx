@@ -164,6 +164,7 @@ export default function PortfolioTracker() {
             const [journalFilter, setJournalFilter] = useState('all');
             const [journalActiveTag, setJournalActiveTag] = useState(null);
             const [journalSelected, setJournalSelected] = useState(null);
+            const [journalEditingNotes, setJournalEditingNotes] = useState(null);
             const [sortColumn, setSortColumn] = useState(null);
             const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
             const [searchTerm, setSearchTerm] = useState('');
@@ -821,6 +822,12 @@ export default function PortfolioTracker() {
             const saveTrades = async (newTrades) => {
                 setTrades(newTrades);
                 await window.storage.set(`portfolio_trades_${activePortfolioId}`, JSON.stringify(newTrades));
+            };
+
+            const saveJournalNotes = async (tradeId, newNotes) => {
+                const updated = tradesRef.current.map(t => t.id === tradeId ? { ...t, notes: newNotes } : t);
+                await saveTrades(updated);
+                showToast('success', 'Saved', 'Journal notes updated.');
             };
 
             const extractDividend = (text) => {
@@ -6584,8 +6591,45 @@ export default function PortfolioTracker() {
 
                                             {/* Notes */}
                                             <div style={{ marginBottom: '22px' }}>
-                                                <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.68rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>Notes</div>
-                                                <NoteText text={t.notes || ''} />
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.68rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Notes</div>
+                                                    <button
+                                                        onClick={() => setJournalEditingNotes(prev => prev === t.id ? null : t.id)}
+                                                        style={{ fontSize: '0.7rem', fontWeight: '600', color: journalEditingNotes === t.id ? T.green : T.textMuted, background: 'transparent', border: `1px solid ${journalEditingNotes === t.id ? T.green : T.border}`, borderRadius: '4px', padding: '2px 9px', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s' }}
+                                                        onMouseEnter={e => { e.currentTarget.style.color = T.green; e.currentTarget.style.borderColor = T.green; }}
+                                                        onMouseLeave={e => { if (journalEditingNotes !== t.id) { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; } }}>
+                                                        {journalEditingNotes === t.id ? 'Cancel' : '✎ Edit'}
+                                                    </button>
+                                                </div>
+                                                {journalEditingNotes === t.id ? (
+                                                    <div>
+                                                        <textarea
+                                                            defaultValue={t.notes || ''}
+                                                            ref={el => { if (el) el.journalTradeId = t.id; }}
+                                                            id={`journal-notes-${t.id}`}
+                                                            rows={6}
+                                                            placeholder="Add notes, #tags..."
+                                                            style={{ width: '100%', padding: '10px 12px', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '6px', color: T.textPrimary, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.95rem', lineHeight: '1.7', resize: 'vertical', outline: 'none' }}
+                                                        />
+                                                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const el = document.getElementById(`journal-notes-${t.id}`);
+                                                                    if (el) { saveJournalNotes(t.id, el.value); setJournalEditingNotes(null); setJournalSelected(null); }
+                                                                }}
+                                                                style={{ padding: '6px 18px', background: T.green, border: 'none', borderRadius: '5px', color: isDark ? '#000' : '#fff', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                                                Save
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setJournalEditingNotes(null)}
+                                                                style={{ padding: '6px 14px', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', color: T.textSecondary, fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <NoteText text={t.notes || ''} />
+                                                )}
                                             </div>
 
                                             {/* Tags */}
