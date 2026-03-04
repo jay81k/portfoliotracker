@@ -5600,7 +5600,7 @@ export default function PortfolioTracker() {
             const toastColors = { success: '#00ff88', error: '#ff4444', warning: '#ffaa00', info: '#00aadd' };
             const toastIcons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
 
-            if (view === 'trades') return (
+            if (view === 'trades') { return (
                 <div style={{ minHeight: '100vh', padding: '2rem', background: T.pageBg, color: T.textPrimary, marginLeft: '220px' }}>
                     {renderSidebar()}
                     <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
@@ -6353,8 +6353,7 @@ export default function PortfolioTracker() {
                 {renderSharedModals()}
                 {lightboxJSX}
                 </div>
-            );
-        }
+            ); }
 
 
             // ── Journal View ──────────────────────────────────────
