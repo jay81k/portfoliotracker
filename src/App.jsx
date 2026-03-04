@@ -1627,12 +1627,10 @@ export default function PortfolioTracker() {
                     })
                 );
                 const backup = {
-                    version: 5,  // v5: screenshotUrls on each trade
+                    version: 5,
                     exportedAt: new Date().toISOString(),
                     portfolios: allPortfolioData,
-                    activePortfolioId,
-                    startingBalances, // v3 compat
-                    trades
+                    activePortfolioId
                 };
                 const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
