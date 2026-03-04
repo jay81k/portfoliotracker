@@ -6412,8 +6412,8 @@ export default function PortfolioTracker() {
                 const purpleBg    = isDark ? 'rgba(167,139,250,0.12)' : 'rgba(124,58,237,0.09)';
                 const purpleBorder= isDark ? 'rgba(167,139,250,0.25)' : 'rgba(124,58,237,0.2)';
 
-                return (
-                    <div style={{ marginLeft: '220px', height: '100vh', display: 'flex', flexDirection: 'column', background: T.pageBg, color: T.textPrimary, overflow: 'hidden' }}>
+                return (<>
+                    <div style={{ marginLeft: '220px', height: '100vh', display: 'flex', flexDirection: 'column', background: T.pageBg, color: T.textPrimary, overflow: 'visible' }}>
                         {renderSidebar()}
                         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
@@ -6649,13 +6649,13 @@ export default function PortfolioTracker() {
                                     <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                                         <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); setScreenshotUrls([]); setPendingBlobs([]); setIsPasteActive(false); }}
                                             style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '4px', color: T.textSecondary, cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
-                                        <button onClick={() => { handleSaveEdit(); setJournalSelected(null); }}
+                                        <button onClick={() => { handleUpdateTrade(); setJournalSelected(null); }}
                                             style={{ flex: 1, padding: '0.75rem', background: T.green, border: 'none', borderRadius: '4px', color: isDark ? '#000' : '#fff', cursor: 'pointer', fontWeight: '700' }}>Save Changes</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
-                );
+                </>);
             }
 }
