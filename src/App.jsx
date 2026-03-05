@@ -6599,52 +6599,63 @@ export default function PortfolioTracker() {
                                                     <span style={{ fontSize: '0.88rem', color: T.textMuted, fontWeight: '400' }}>{t.name || ''}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    {/* Screenshot controls */}
-                                                    {journalUploadingScreenshot ? (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', color: T.blue }}>
-                                                            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', border: `2px solid ${T.blue}`, borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
-                                                            Uploading...
-                                                        </div>
-                                                    ) : journalPasteActive ? (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', border: `1px dashed ${T.blue}`, borderRadius: '5px', background: 'rgba(0,204,255,0.04)' }}>
-                                                            <ClipboardIcon size={12} />
-                                                            <span style={{ fontSize: '0.72rem', color: T.blue, fontWeight: '600' }}>Press Ctrl/Cmd+V</span>
-                                                            <button onClick={() => setJournalPasteActive(false)} style={{ fontSize: '0.65rem', color: T.textFaint, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>cancel</button>
-                                                        </div>
-                                                    ) : (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                            {/* Camera / view button */}
-                                                            <button
-                                                                onClick={() => t.screenshotUrls?.length > 0 && setLightboxData({ srcs: t.screenshotUrls, index: 0 })}
-                                                                title={t.screenshotUrls?.length > 0 ? `View ${t.screenshotUrls.length} screenshot${t.screenshotUrls.length > 1 ? 's' : ''}` : 'No screenshots yet'}
-                                                                style={{ background: 'transparent', border: `1px solid ${t.screenshotUrls?.length > 0 ? T.green : T.border}`, borderRadius: '5px', padding: '6px 9px', cursor: t.screenshotUrls?.length > 0 ? 'pointer' : 'default', color: t.screenshotUrls?.length > 0 ? T.green : T.textMuted, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', fontWeight: '600', opacity: t.screenshotUrls?.length > 0 ? 1 : 0.45, transition: 'all 0.12s' }}
-                                                                onMouseEnter={e => { if (t.screenshotUrls?.length > 0) e.currentTarget.style.background = isDark ? 'rgba(0,255,136,0.08)' : 'rgba(5,150,105,0.08)'; }}
-                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                                                <CameraIcon size={13} />
-                                                                {t.screenshotUrls?.length > 0 && <span>{t.screenshotUrls.length}</span>}
-                                                            </button>
-                                                            {/* Attach button */}
-                                                            <button
-                                                                onClick={() => journalScreenshotFileRef.current?.click()}
-                                                                title="Attach screenshot"
-                                                                style={{ background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '6px 9px', cursor: 'pointer', color: T.textMuted, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: '600', fontFamily: 'inherit', transition: 'all 0.12s' }}
-                                                                onMouseEnter={e => { e.currentTarget.style.color = T.blue; e.currentTarget.style.borderColor = T.blue; }}
-                                                                onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}>
-                                                                <CameraIcon size={12} /> ATTACH
-                                                            </button>
-                                                            {/* Paste button */}
-                                                            <button
-                                                                onClick={() => setJournalPasteActive(true)}
-                                                                title="Paste screenshot"
-                                                                style={{ background: 'transparent', border: `1px dashed ${T.border}`, borderRadius: '5px', padding: '6px 9px', cursor: 'pointer', color: T.textMuted, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: '600', fontFamily: 'inherit', transition: 'all 0.12s' }}
-                                                                onMouseEnter={e => { e.currentTarget.style.color = T.blue; e.currentTarget.style.borderColor = T.blue; }}
-                                                                onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}>
-                                                                <ClipboardIcon size={12} /> PASTE
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                    <input ref={journalScreenshotFileRef} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }}
-                                                        onChange={e => { const f = e.target.files[0]; if (f) saveJournalScreenshot(t.id, f); e.target.value = ''; }} />
+                                                    {/* Camera dropdown */}
+                                                    {(() => {
+                                                        const hasShots = t.screenshotUrls?.length > 0;
+                                                        const [camOpen, setCamOpen] = React.useState(false);
+                                                        return (
+                                                            <div style={{ position: 'relative' }}>
+                                                                <button
+                                                                    onClick={() => setCamOpen(o => !o)}
+                                                                    title={hasShots ? `${t.screenshotUrls.length} screenshot${t.screenshotUrls.length > 1 ? 's' : ''}` : 'Screenshots'}
+                                                                    style={{ background: 'transparent', border: `1px solid ${hasShots ? T.green : T.border}`, borderRadius: '5px', padding: '6px 9px', cursor: 'pointer', color: hasShots ? T.green : T.textMuted, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', fontWeight: '600', opacity: hasShots ? 1 : 0.5, transition: 'all 0.12s' }}
+                                                                    onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.borderColor = hasShots ? T.green : T.textMuted; }}
+                                                                    onMouseLeave={e => { e.currentTarget.style.opacity = hasShots ? '1' : '0.5'; e.currentTarget.style.borderColor = hasShots ? T.green : T.border; }}>
+                                                                    <CameraIcon size={13} />
+                                                                    {hasShots && <span>{t.screenshotUrls.length}</span>}
+                                                                </button>
+                                                                {camOpen && (
+                                                                    <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: T.surfaceBg, border: `1px solid ${T.borderStrong}`, borderRadius: '6px', boxShadow: T.shadowMd, zIndex: 100, minWidth: '140px', overflow: 'hidden' }}>
+                                                                        {hasShots && (
+                                                                            <button onClick={() => { setLightboxData({ srcs: t.screenshotUrls, index: 0 }); setCamOpen(false); }}
+                                                                                style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', borderBottom: `1px solid ${T.border}`, color: T.textPrimary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: '500', fontFamily: 'inherit', textAlign: 'left' }}
+                                                                                onMouseEnter={e => e.currentTarget.style.background = T.panelBg}
+                                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                                                <CameraIcon size={12} /> View ({t.screenshotUrls.length})
+                                                                            </button>
+                                                                        )}
+                                                                        {journalUploadingScreenshot ? (
+                                                                            <div style={{ padding: '9px 14px', fontSize: '0.75rem', color: T.blue, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', border: `2px solid ${T.blue}`, borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} /> Uploading...
+                                                                            </div>
+                                                                        ) : journalPasteActive ? (
+                                                                            <div style={{ padding: '9px 14px' }}>
+                                                                                <div style={{ fontSize: '0.75rem', color: T.blue, fontWeight: '600', marginBottom: '4px' }}>Press Ctrl/Cmd+V</div>
+                                                                                <button onClick={() => { setJournalPasteActive(false); setCamOpen(false); }} style={{ fontSize: '0.68rem', color: T.textFaint, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontFamily: 'inherit' }}>cancel</button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <>
+                                                                                <button onClick={() => { journalScreenshotFileRef.current?.click(); setCamOpen(false); }}
+                                                                                    style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', borderBottom: `1px solid ${T.border}`, color: T.textPrimary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: '500', fontFamily: 'inherit', textAlign: 'left' }}
+                                                                                    onMouseEnter={e => e.currentTarget.style.background = T.panelBg}
+                                                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                                                    <CameraIcon size={12} /> Attach file
+                                                                                </button>
+                                                                                <button onClick={() => { setJournalPasteActive(true); }}
+                                                                                    style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', color: T.textPrimary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: '500', fontFamily: 'inherit', textAlign: 'left' }}
+                                                                                    onMouseEnter={e => e.currentTarget.style.background = T.panelBg}
+                                                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                                                    <ClipboardIcon size={12} /> Paste image
+                                                                                </button>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                                <input ref={journalScreenshotFileRef} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }}
+                                                                    onChange={e => { const f = e.target.files[0]; if (f) saveJournalScreenshot(t.id, f); e.target.value = ''; }} />
+                                                            </div>
+                                                        );
+                                                    })()}
                                                     <button
                                                         onClick={() => { handleEditTrade(t); setView('trades'); }}
                                                         style={{ fontSize: '0.8rem', fontWeight: '600', color: T.textMuted, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '7px 14px', cursor: 'pointer', letterSpacing: '0.04em', flexShrink: 0, fontFamily: 'inherit', transition: 'all 0.12s' }}
