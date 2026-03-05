@@ -168,6 +168,7 @@ export default function PortfolioTracker() {
             const [journalActiveTag, setJournalActiveTag] = useState(null);
             const [journalSelected, setJournalSelected] = useState(null);
             const [journalEditingNotes, setJournalEditingNotes] = useState(null);
+            const [journalCamOpen, setJournalCamOpen] = useState(false);
             const [sortColumn, setSortColumn] = useState(null);
             const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
             const [searchTerm, setSearchTerm] = useState('');
@@ -6602,11 +6603,10 @@ export default function PortfolioTracker() {
                                                     {/* Camera dropdown */}
                                                     {(() => {
                                                         const hasShots = t.screenshotUrls?.length > 0;
-                                                        const [camOpen, setCamOpen] = React.useState(false);
                                                         return (
                                                             <div style={{ position: 'relative' }}>
                                                                 <button
-                                                                    onClick={() => setCamOpen(o => !o)}
+                                                                    onClick={() => setJournalCamOpen(o => !o)}
                                                                     title={hasShots ? `${t.screenshotUrls.length} screenshot${t.screenshotUrls.length > 1 ? 's' : ''}` : 'Screenshots'}
                                                                     style={{ background: 'transparent', border: `1px solid ${hasShots ? T.green : T.border}`, borderRadius: '5px', padding: '6px 9px', cursor: 'pointer', color: hasShots ? T.green : T.textMuted, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', fontWeight: '600', opacity: hasShots ? 1 : 0.5, transition: 'all 0.12s' }}
                                                                     onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.borderColor = hasShots ? T.green : T.textMuted; }}
@@ -6614,10 +6614,10 @@ export default function PortfolioTracker() {
                                                                     <CameraIcon size={13} />
                                                                     {hasShots && <span>{t.screenshotUrls.length}</span>}
                                                                 </button>
-                                                                {camOpen && (
+                                                                {journalCamOpen && (
                                                                     <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: T.surfaceBg, border: `1px solid ${T.borderStrong}`, borderRadius: '6px', boxShadow: T.shadowMd, zIndex: 100, minWidth: '140px', overflow: 'hidden' }}>
                                                                         {hasShots && (
-                                                                            <button onClick={() => { setLightboxData({ srcs: t.screenshotUrls, index: 0 }); setCamOpen(false); }}
+                                                                            <button onClick={() => { setLightboxData({ srcs: t.screenshotUrls, index: 0 }); setJournalCamOpen(false); }}
                                                                                 style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', borderBottom: `1px solid ${T.border}`, color: T.textPrimary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: '500', fontFamily: 'inherit', textAlign: 'left' }}
                                                                                 onMouseEnter={e => e.currentTarget.style.background = T.panelBg}
                                                                                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
@@ -6631,17 +6631,17 @@ export default function PortfolioTracker() {
                                                                         ) : journalPasteActive ? (
                                                                             <div style={{ padding: '9px 14px' }}>
                                                                                 <div style={{ fontSize: '0.75rem', color: T.blue, fontWeight: '600', marginBottom: '4px' }}>Press Ctrl/Cmd+V</div>
-                                                                                <button onClick={() => { setJournalPasteActive(false); setCamOpen(false); }} style={{ fontSize: '0.68rem', color: T.textFaint, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontFamily: 'inherit' }}>cancel</button>
+                                                                                <button onClick={() => { setJournalPasteActive(false); setJournalCamOpen(false); }} style={{ fontSize: '0.68rem', color: T.textFaint, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontFamily: 'inherit' }}>cancel</button>
                                                                             </div>
                                                                         ) : (
                                                                             <>
-                                                                                <button onClick={() => { journalScreenshotFileRef.current?.click(); setCamOpen(false); }}
+                                                                                <button onClick={() => { journalScreenshotFileRef.current?.click(); setJournalCamOpen(false); }}
                                                                                     style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', borderBottom: `1px solid ${T.border}`, color: T.textPrimary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: '500', fontFamily: 'inherit', textAlign: 'left' }}
                                                                                     onMouseEnter={e => e.currentTarget.style.background = T.panelBg}
                                                                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                                                                     <CameraIcon size={12} /> Attach file
                                                                                 </button>
-                                                                                <button onClick={() => { setJournalPasteActive(true); }}
+                                                                                <button onClick={() => setJournalPasteActive(true)}
                                                                                     style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', color: T.textPrimary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: '500', fontFamily: 'inherit', textAlign: 'left' }}
                                                                                     onMouseEnter={e => e.currentTarget.style.background = T.panelBg}
                                                                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
