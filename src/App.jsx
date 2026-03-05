@@ -6508,37 +6508,6 @@ export default function PortfolioTracker() {
                                         ))}
                                     </div>
 
-                                    {/* Sort toggles */}
-                                    <div style={{ display: 'flex', gap: '4px' }}>
-                                        {[
-                                            { field: 'symbol', asc: 'A → Z', desc: 'Z → A' },
-                                            { field: 'date',   asc: 'Oldest', desc: 'Newest' },
-                                        ].map(s => {
-                                            const active = journalSortField === s.field;
-                                            const label = active ? (journalSortDir === 'asc' ? s.asc : s.desc) : (s.field === 'date' ? 'Date' : 'A → Z');
-                                            return (
-                                                <button key={s.field}
-                                                    onClick={() => {
-                                                        if (journalSortField === s.field) {
-                                                            setJournalSortDir(d => d === 'asc' ? 'desc' : 'asc');
-                                                        } else {
-                                                            setJournalSortField(s.field);
-                                                            setJournalSortDir(s.field === 'date' ? 'desc' : 'asc');
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        flex: 1, padding: '3px 0', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.04em',
-                                                        border: `1px solid ${active ? T.blue : T.border}`,
-                                                        borderRadius: '4px', cursor: 'pointer',
-                                                        background: active ? (isDark ? 'rgba(0,204,255,0.07)' : 'rgba(0,150,200,0.07)') : 'transparent',
-                                                        color: active ? T.blue : T.textMuted,
-                                                        fontFamily: 'inherit',
-                                                    }}>
-                                                    {label} {active ? (journalSortDir === 'asc' ? '↑' : '↓') : ''}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
                                 </div>
 
                                 {/* Tag strip */}
@@ -6560,6 +6529,38 @@ export default function PortfolioTracker() {
                                         )}
                                     </div>
                                 )}
+
+                                {/* Sort toggles */}
+                                <div style={{ padding: '7px 14px', borderBottom: `1px solid ${T.border}`, display: 'flex', gap: '4px', flexShrink: 0 }}>
+                                    {[
+                                        { field: 'symbol', asc: 'A → Z', desc: 'Z → A' },
+                                        { field: 'date',   asc: 'Oldest', desc: 'Newest' },
+                                    ].map(s => {
+                                        const active = journalSortField === s.field;
+                                        const label = active ? (journalSortDir === 'asc' ? s.asc : s.desc) : (s.field === 'date' ? 'Date' : 'A → Z');
+                                        return (
+                                            <button key={s.field}
+                                                onClick={() => {
+                                                    if (journalSortField === s.field) {
+                                                        setJournalSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                                                    } else {
+                                                        setJournalSortField(s.field);
+                                                        setJournalSortDir(s.field === 'date' ? 'desc' : 'asc');
+                                                    }
+                                                }}
+                                                style={{
+                                                    flex: 1, padding: '3px 0', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.04em',
+                                                    border: `1px solid ${active ? T.blue : T.border}`,
+                                                    borderRadius: '4px', cursor: 'pointer',
+                                                    background: active ? (isDark ? 'rgba(0,204,255,0.07)' : 'rgba(0,150,200,0.07)') : 'transparent',
+                                                    color: active ? T.blue : T.textMuted,
+                                                    fontFamily: 'inherit',
+                                                }}>
+                                                {label} {active ? (journalSortDir === 'asc' ? '↑' : '↓') : ''}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
 
                                 {/* Count */}
                                 <div style={{ padding: '5px 14px', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
@@ -6746,7 +6747,7 @@ export default function PortfolioTracker() {
                                                                     onClick={() => setLightboxData({ srcs: t.screenshotUrls, index: idx })}
                                                                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
                                                                 <button
-                                                                    onClick={() => deleteJournalScreenshot(t.id, url)}
+                                                                    onClick={() => setConfirmDialog({ title: 'Delete Screenshot', message: 'Are you sure you want to delete this screenshot? This cannot be undone.', onConfirm: () => deleteJournalScreenshot(t.id, url) })}
                                                                     title="Delete screenshot"
                                                                     style={{ position: 'absolute', top: 3, right: 3, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.75)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: '900', lineHeight: 1 }}>
                                                                     &#x2715;
@@ -6821,6 +6822,23 @@ export default function PortfolioTracker() {
                         </div>
                     </div>
                     {lightboxJSX}
+                    {confirmDialog && (
+                        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: T.modalOverlay, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', zIndex: 1200 }}>
+                            <div style={{ background: T.surfaceBg, borderRadius: '8px', padding: '2rem', maxWidth: '400px', width: '100%', border: `1px solid ${T.border}` }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: isDark ? '#f87171' : '#dc2626' }}>⚠ {confirmDialog.title}</h3>
+                                    <button onClick={() => setConfirmDialog(null)} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={20} /></button>
+                                </div>
+                                <p style={{ color: T.textSecondary, fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>{confirmDialog.message}</p>
+                                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                    <button onClick={() => setConfirmDialog(null)}
+                                        style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', color: T.textSecondary, cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>Cancel</button>
+                                    <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }}
+                                        style={{ flex: 1, padding: '0.75rem', background: isDark ? '#7f1d1d' : '#fecaca', border: `1px solid ${isDark ? '#f87171' : '#dc2626'}`, borderRadius: '5px', color: isDark ? '#fca5a5' : '#991b1b', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }}>Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </>);
             }
 }
