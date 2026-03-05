@@ -167,6 +167,8 @@ export default function PortfolioTracker() {
             const [journalFilter, setJournalFilter] = useState('all');
             const [journalActiveTag, setJournalActiveTag] = useState(null);
             const [journalSelected, setJournalSelected] = useState(null);
+            const [journalSortField, setJournalSortField] = useState('date');
+            const [journalSortDir, setJournalSortDir] = useState('desc');
             const [journalEditingNotes, setJournalEditingNotes] = useState(null);
             const [journalCamOpen, setJournalCamOpen] = useState(false);
             const [sortColumn, setSortColumn] = useState(null);
@@ -6435,9 +6437,15 @@ export default function PortfolioTracker() {
                         || (t.notes || '').toLowerCase().includes(q);
                     return matchesOutcome && matchesTag && matchesSearch;
                 }).sort((a, b) => {
-                    const da = a.exitDate || a.entryDate;
-                    const db = b.exitDate || b.entryDate;
-                    return db > da ? 1 : -1;
+                    if (journalSortField === 'symbol') {
+                        const sa = (a.symbol || '').toLowerCase();
+                        const sb = (b.symbol || '').toLowerCase();
+                        return journalSortDir === 'asc' ? sa.localeCompare(sb) : sb.localeCompare(sa);
+                    } else {
+                        const da = a.exitDate || a.entryDate;
+                        const db = b.exitDate || b.entryDate;
+                        return journalSortDir === 'asc' ? (da > db ? 1 : -1) : (db > da ? 1 : -1);
+                    }
                 });
 
                 const handleJournalTagClick = (tag) => {
@@ -6488,7 +6496,7 @@ export default function PortfolioTracker() {
                                     </div>
 
                                     {/* Outcome filters */}
-                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
                                         {[{id:'all',label:'All'},{id:'open',label:'Open'},{id:'win',label:'Wins'},{id:'loss',label:'Losses'}].map(f => (
                                             <button key={f.id} onClick={() => { setJournalFilter(f.id); setJournalActiveTag(null); }} style={{
                                                 flex: 1, padding: '3px 0', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.05em',
@@ -6498,6 +6506,38 @@ export default function PortfolioTracker() {
                                                 color: journalFilter === f.id && !journalActiveTag ? T.green : T.textMuted,
                                             }}>{f.label}</button>
                                         ))}
+                                    </div>
+
+                                    {/* Sort toggles */}
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        {[
+                                            { field: 'symbol', asc: 'A → Z', desc: 'Z → A' },
+                                            { field: 'date',   asc: 'Oldest', desc: 'Newest' },
+                                        ].map(s => {
+                                            const active = journalSortField === s.field;
+                                            const label = active ? (journalSortDir === 'asc' ? s.asc : s.desc) : (s.field === 'date' ? 'Date' : 'A → Z');
+                                            return (
+                                                <button key={s.field}
+                                                    onClick={() => {
+                                                        if (journalSortField === s.field) {
+                                                            setJournalSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                                                        } else {
+                                                            setJournalSortField(s.field);
+                                                            setJournalSortDir(s.field === 'date' ? 'desc' : 'asc');
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        flex: 1, padding: '3px 0', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.04em',
+                                                        border: `1px solid ${active ? T.blue : T.border}`,
+                                                        borderRadius: '4px', cursor: 'pointer',
+                                                        background: active ? (isDark ? 'rgba(0,204,255,0.07)' : 'rgba(0,150,200,0.07)') : 'transparent',
+                                                        color: active ? T.blue : T.textMuted,
+                                                        fontFamily: 'inherit',
+                                                    }}>
+                                                    {label} {active ? (journalSortDir === 'asc' ? '↑' : '↓') : ''}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
