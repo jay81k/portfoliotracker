@@ -6494,7 +6494,7 @@ export default function PortfolioTracker() {
                                                     style={{ fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer',
                                                         color: journalActiveTag === tag ? purpleColor : T.textSecondary,
                                                         background: journalActiveTag === tag ? purpleBg : 'transparent',
-                                                        border: `1px solid ${purpleBorder}`,
+                                                        border: `1px solid ${journalActiveTag === tag ? purpleBorder : purpleColor}`,
                                                         padding: '2px 8px', borderRadius: '20px', transition: 'all 0.1s' }}>
                                                     {tag}
                                                 </span>
