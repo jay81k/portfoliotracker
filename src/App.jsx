@@ -139,6 +139,9 @@ export default function PortfolioTracker() {
             const [lightboxData, setLightboxData] = useState(null);
             const screenshotFileRef = useRef(null);                            // hidden file input ref (add modal)
             const screenshotFileEditRef = useRef(null);                        // hidden file input ref (edit modal)
+            const journalScreenshotFileRef = useRef(null);                      // hidden file input ref (journal panel)
+            const [journalUploadingScreenshot, setJournalUploadingScreenshot] = useState(false);
+            const [journalPasteActive, setJournalPasteActive] = useState(false);
             
             // Helper function to reset form to default values
             const resetFormData = () => {
@@ -819,6 +822,20 @@ export default function PortfolioTracker() {
                 return () => document.removeEventListener('paste', handler);
             }, [isPasteActive]);
 
+            // Journal paste listener
+            useEffect(() => {
+                if (!journalPasteActive) return;
+                const handler = (e) => {
+                    const file = Array.from(e.clipboardData?.files || []).find(f => f.type.startsWith('image/'));
+                    if (!file) return;
+                    e.preventDefault();
+                    const activeId = journalSelected?.id;
+                    if (activeId) saveJournalScreenshot(activeId, file);
+                };
+                document.addEventListener('paste', handler);
+                return () => document.removeEventListener('paste', handler);
+            }, [journalPasteActive, journalSelected]);
+
             const saveTrades = async (newTrades) => {
                 setTrades(newTrades);
                 await window.storage.set(`portfolio_trades_${activePortfolioId}`, JSON.stringify(newTrades));
@@ -830,6 +847,25 @@ export default function PortfolioTracker() {
                 await saveTrades(updated);
                 setJournalSelected(updatedTrade);
                 showToast('success', 'Saved', 'Journal notes updated.');
+            };
+
+            const saveJournalScreenshot = async (tradeId, file) => {
+                if (!file) return;
+                setJournalUploadingScreenshot(true);
+                setJournalPasteActive(false);
+                try {
+                    const url = await uploadToImgbb(file);
+                    const existing = tradesRef.current.find(t => t.id === tradeId);
+                    const updatedTrade = { ...existing, screenshotUrls: [...(existing.screenshotUrls || []), url] };
+                    const updated = tradesRef.current.map(t => t.id === tradeId ? updatedTrade : t);
+                    await saveTrades(updated);
+                    setJournalSelected(updatedTrade);
+                    showToast('success', 'Screenshot Added', 'Screenshot saved to this trade.');
+                } catch(e) {
+                    showToast('error', 'Upload Failed', 'Could not upload screenshot. Check your connection.');
+                } finally {
+                    setJournalUploadingScreenshot(false);
+                }
             };
 
             const extractDividend = (text) => {
@@ -6563,17 +6599,52 @@ export default function PortfolioTracker() {
                                                     <span style={{ fontSize: '0.88rem', color: T.textMuted, fontWeight: '400' }}>{t.name || ''}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    {(t.screenshotUrls?.length > 0) && (
-                                                        <button
-                                                            onClick={() => setLightboxData({ srcs: t.screenshotUrls, index: 0 })}
-                                                            title={`View ${t.screenshotUrls.length} screenshot${t.screenshotUrls.length > 1 ? 's' : ''}`}
-                                                            style={{ background: 'transparent', border: `1px solid ${T.green}`, borderRadius: '5px', padding: '6px 10px', cursor: 'pointer', color: T.green, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', fontWeight: '600', fontFamily: 'inherit', transition: 'all 0.12s', flexShrink: 0 }}
-                                                            onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(0,255,136,0.08)' : 'rgba(5,150,105,0.08)'; }}
-                                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-                                                            <CameraIcon size={13} />
-                                                            {t.screenshotUrls.length > 1 && <span>{t.screenshotUrls.length}</span>}
-                                                        </button>
+                                                    {/* Screenshot controls */}
+                                                    {journalUploadingScreenshot ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', color: T.blue }}>
+                                                            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', border: `2px solid ${T.blue}`, borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
+                                                            Uploading...
+                                                        </div>
+                                                    ) : journalPasteActive ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', border: `1px dashed ${T.blue}`, borderRadius: '5px', background: 'rgba(0,204,255,0.04)' }}>
+                                                            <ClipboardIcon size={12} />
+                                                            <span style={{ fontSize: '0.72rem', color: T.blue, fontWeight: '600' }}>Press Ctrl/Cmd+V</span>
+                                                            <button onClick={() => setJournalPasteActive(false)} style={{ fontSize: '0.65rem', color: T.textFaint, background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>cancel</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                            {/* Camera / view button */}
+                                                            <button
+                                                                onClick={() => t.screenshotUrls?.length > 0 && setLightboxData({ srcs: t.screenshotUrls, index: 0 })}
+                                                                title={t.screenshotUrls?.length > 0 ? `View ${t.screenshotUrls.length} screenshot${t.screenshotUrls.length > 1 ? 's' : ''}` : 'No screenshots yet'}
+                                                                style={{ background: 'transparent', border: `1px solid ${t.screenshotUrls?.length > 0 ? T.green : T.border}`, borderRadius: '5px', padding: '6px 9px', cursor: t.screenshotUrls?.length > 0 ? 'pointer' : 'default', color: t.screenshotUrls?.length > 0 ? T.green : T.textMuted, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', fontWeight: '600', opacity: t.screenshotUrls?.length > 0 ? 1 : 0.45, transition: 'all 0.12s' }}
+                                                                onMouseEnter={e => { if (t.screenshotUrls?.length > 0) e.currentTarget.style.background = isDark ? 'rgba(0,255,136,0.08)' : 'rgba(5,150,105,0.08)'; }}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                                <CameraIcon size={13} />
+                                                                {t.screenshotUrls?.length > 0 && <span>{t.screenshotUrls.length}</span>}
+                                                            </button>
+                                                            {/* Attach button */}
+                                                            <button
+                                                                onClick={() => journalScreenshotFileRef.current?.click()}
+                                                                title="Attach screenshot"
+                                                                style={{ background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '6px 9px', cursor: 'pointer', color: T.textMuted, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: '600', fontFamily: 'inherit', transition: 'all 0.12s' }}
+                                                                onMouseEnter={e => { e.currentTarget.style.color = T.blue; e.currentTarget.style.borderColor = T.blue; }}
+                                                                onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}>
+                                                                <CameraIcon size={12} /> ATTACH
+                                                            </button>
+                                                            {/* Paste button */}
+                                                            <button
+                                                                onClick={() => setJournalPasteActive(true)}
+                                                                title="Paste screenshot"
+                                                                style={{ background: 'transparent', border: `1px dashed ${T.border}`, borderRadius: '5px', padding: '6px 9px', cursor: 'pointer', color: T.textMuted, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: '600', fontFamily: 'inherit', transition: 'all 0.12s' }}
+                                                                onMouseEnter={e => { e.currentTarget.style.color = T.blue; e.currentTarget.style.borderColor = T.blue; }}
+                                                                onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}>
+                                                                <ClipboardIcon size={12} /> PASTE
+                                                            </button>
+                                                        </div>
                                                     )}
+                                                    <input ref={journalScreenshotFileRef} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }}
+                                                        onChange={e => { const f = e.target.files[0]; if (f) saveJournalScreenshot(t.id, f); e.target.value = ''; }} />
                                                     <button
                                                         onClick={() => { handleEditTrade(t); setView('trades'); }}
                                                         style={{ fontSize: '0.8rem', fontWeight: '600', color: T.textMuted, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '7px 14px', cursor: 'pointer', letterSpacing: '0.04em', flexShrink: 0, fontFamily: 'inherit', transition: 'all 0.12s' }}
