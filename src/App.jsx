@@ -842,6 +842,15 @@ export default function PortfolioTracker() {
                 await window.storage.set(`portfolio_trades_${activePortfolioId}`, JSON.stringify(newTrades));
             };
 
+            const deleteJournalScreenshot = async (tradeId, urlToRemove) => {
+                const existing = tradesRef.current.find(t => t.id === tradeId);
+                const updatedTrade = { ...existing, screenshotUrls: (existing.screenshotUrls || []).filter(u => u !== urlToRemove) };
+                const updated = tradesRef.current.map(t => t.id === tradeId ? updatedTrade : t);
+                await saveTrades(updated);
+                setJournalSelected(updatedTrade);
+                showToast('success', 'Removed', 'Screenshot deleted.');
+            };
+
             const saveJournalNotes = async (tradeId, newNotes) => {
                 const updatedTrade = { ...tradesRef.current.find(t => t.id === tradeId), notes: newNotes };
                 const updated = tradesRef.current.map(t => t.id === tradeId ? updatedTrade : t);
@@ -6729,6 +6738,28 @@ export default function PortfolioTracker() {
                                                     <NoteText text={t.notes || ''} />
                                                 )}
                                             </div>
+
+                                            {/* Screenshots strip */}
+                                            {t.screenshotUrls?.length > 0 && (
+                                                <div style={{ marginBottom: '18px', paddingTop: '16px', borderTop: `1px solid ${T.border}` }}>
+                                                    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.68rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Screenshots</div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                        {t.screenshotUrls.map((url, idx) => (
+                                                            <div key={url} style={{ position: 'relative', width: 80, height: 58, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${T.borderStrong}`, flexShrink: 0 }}>
+                                                                <img src={url} alt={`screenshot ${idx + 1}`}
+                                                                    onClick={() => setLightboxData({ srcs: t.screenshotUrls, index: idx })}
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
+                                                                <button
+                                                                    onClick={() => deleteJournalScreenshot(t.id, url)}
+                                                                    title="Delete screenshot"
+                                                                    style={{ position: 'absolute', top: 3, right: 3, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.75)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: '900', lineHeight: 1 }}>
+                                                                    &#x2715;
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {/* Tags */}
                                             {tags.length > 0 && (
