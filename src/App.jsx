@@ -6562,13 +6562,26 @@ export default function PortfolioTracker() {
                                                     </div>
                                                     <span style={{ fontSize: '0.88rem', color: T.textMuted, fontWeight: '400' }}>{t.name || ''}</span>
                                                 </div>
-                                                <button
-                                                    onClick={() => { handleEditTrade(t); setView('trades'); }}
-                                                    style={{ fontSize: '0.8rem', fontWeight: '600', color: T.textMuted, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '7px 14px', cursor: 'pointer', letterSpacing: '0.04em', flexShrink: 0, fontFamily: 'inherit', transition: 'all 0.12s' }}
-                                                    onMouseEnter={e => { e.currentTarget.style.color = T.green; e.currentTarget.style.borderColor = T.green; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}>
-                                                    ↗ View Trade
-                                                </button>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {(t.screenshotUrls?.length > 0) && (
+                                                        <button
+                                                            onClick={() => setLightboxData({ srcs: t.screenshotUrls, index: 0 })}
+                                                            title={`View ${t.screenshotUrls.length} screenshot${t.screenshotUrls.length > 1 ? 's' : ''}`}
+                                                            style={{ background: 'transparent', border: `1px solid ${T.green}`, borderRadius: '5px', padding: '6px 10px', cursor: 'pointer', color: T.green, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', fontWeight: '600', fontFamily: 'inherit', transition: 'all 0.12s', flexShrink: 0 }}
+                                                            onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(0,255,136,0.08)' : 'rgba(5,150,105,0.08)'; }}
+                                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                                                            <CameraIcon size={13} />
+                                                            {t.screenshotUrls.length > 1 && <span>{t.screenshotUrls.length}</span>}
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => { handleEditTrade(t); setView('trades'); }}
+                                                        style={{ fontSize: '0.8rem', fontWeight: '600', color: T.textMuted, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '7px 14px', cursor: 'pointer', letterSpacing: '0.04em', flexShrink: 0, fontFamily: 'inherit', transition: 'all 0.12s' }}
+                                                        onMouseEnter={e => { e.currentTarget.style.color = T.green; e.currentTarget.style.borderColor = T.green; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}>
+                                                        ↗ View Trade
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             {/* Stats row */}
@@ -6654,6 +6667,7 @@ export default function PortfolioTracker() {
                             </div>
                         </div>
                     </div>
+                    {lightboxJSX}
                 </>);
             }
 }
