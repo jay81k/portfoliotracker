@@ -6485,7 +6485,11 @@ export default function PortfolioTracker() {
 
                                 {/* Header + search + filters */}
                                 <div style={{ padding: '14px', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-                                    <div style={{ fontSize: '0.62rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMuted, marginBottom: '10px' }}>Trade Journal</div>
+                                    {/* Title + count */}
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px', marginBottom: '10px' }}>
+                                        <div style={{ fontSize: '0.62rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMuted }}>Trade Journal</div>
+                                        <div style={{ fontSize: '0.6rem', color: T.textFaint }}>{filteredJournal.length} {filteredJournal.length === 1 ? 'entry' : 'entries'}</div>
+                                    </div>
 
                                     {/* Search */}
                                     <div style={{ position: 'relative', marginBottom: '8px' }}>
@@ -6495,8 +6499,28 @@ export default function PortfolioTracker() {
                                             style={{ width: '100%', padding: '6px 9px 6px 26px', fontSize: '0.78rem', border: `1px solid ${T.border}`, borderRadius: '5px', background: T.surfaceBg, color: T.textPrimary, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
                                     </div>
 
+                                    {/* Tag strip */}
+                                    {allTags.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                                            {allTags.slice(0, 10).map(tag => (
+                                                <span key={tag} onClick={() => handleJournalTagClick(tag)}
+                                                    style={{ fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer',
+                                                        color: journalActiveTag === tag ? purpleColor : T.textSecondary,
+                                                        background: journalActiveTag === tag ? purpleBg : 'transparent',
+                                                        border: `1px solid ${journalActiveTag === tag ? purpleBorder : T.borderStrong}`,
+                                                        padding: '2px 8px', borderRadius: '20px', transition: 'all 0.1s' }}>
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                            {journalActiveTag && (
+                                                <span onClick={() => setJournalActiveTag(null)}
+                                                    style={{ fontSize: '0.68rem', fontWeight: '600', cursor: 'pointer', color: purpleColor, marginLeft: 'auto' }}>✕ clear</span>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* Outcome filters */}
-                                    <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
                                         {[{id:'all',label:'All'},{id:'open',label:'Open'},{id:'win',label:'Wins'},{id:'loss',label:'Losses'}].map(f => (
                                             <button key={f.id} onClick={() => { setJournalFilter(f.id); setJournalActiveTag(null); }} style={{
                                                 flex: 1, padding: '3px 0', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.05em',
@@ -6507,31 +6531,10 @@ export default function PortfolioTracker() {
                                             }}>{f.label}</button>
                                         ))}
                                     </div>
-
                                 </div>
 
-                                {/* Tag strip */}
-                                {allTags.length > 0 && (
-                                    <div style={{ padding: '8px 14px', borderBottom: `1px solid ${T.border}`, display: 'flex', flexWrap: 'wrap', gap: '4px', flexShrink: 0 }}>
-                                        {allTags.slice(0, 10).map(tag => (
-                                            <span key={tag} onClick={() => handleJournalTagClick(tag)}
-                                                style={{ fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer',
-                                                    color: journalActiveTag === tag ? purpleColor : T.textSecondary,
-                                                    background: journalActiveTag === tag ? purpleBg : 'transparent',
-                                                    border: `1px solid ${journalActiveTag === tag ? purpleBorder : T.borderStrong}`,
-                                                    padding: '2px 8px', borderRadius: '20px', transition: 'all 0.1s' }}>
-                                                {tag}
-                                            </span>
-                                        ))}
-                                        {journalActiveTag && (
-                                            <span onClick={() => setJournalActiveTag(null)}
-                                                style={{ fontSize: '0.68rem', fontWeight: '600', cursor: 'pointer', color: purpleColor, marginLeft: 'auto' }}>✕ clear</span>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Sort toggles */}
-                                <div style={{ padding: '5px 14px', borderBottom: `1px solid ${T.border}`, display: 'flex', gap: '12px', flexShrink: 0 }}>
+                                {/* Sort row — aligns with entry card columns */}
+                                <div style={{ padding: '4px 14px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
                                     {[
                                         { field: 'symbol', asc: 'A → Z', desc: 'Z → A', inactive: 'A → Z' },
                                         { field: 'date',   asc: 'Oldest', desc: 'Newest', inactive: 'Newest' },
@@ -6550,7 +6553,7 @@ export default function PortfolioTracker() {
                                                     }
                                                 }}
                                                 style={{
-                                                    padding: 0, fontSize: '0.65rem', fontWeight: active ? '700' : '500',
+                                                    padding: 0, fontSize: '0.62rem', fontWeight: active ? '700' : '500',
                                                     letterSpacing: '0.03em', border: 'none', background: 'transparent',
                                                     cursor: 'pointer', color: active ? T.textSecondary : T.textFaint,
                                                     fontFamily: 'inherit', transition: 'color 0.12s',
@@ -6559,11 +6562,6 @@ export default function PortfolioTracker() {
                                             </button>
                                         );
                                     })}
-                                </div>
-
-                                {/* Count */}
-                                <div style={{ padding: '5px 14px', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-                                    <span style={{ fontSize: '0.68rem', color: T.textFaint }}>{filteredJournal.length} {filteredJournal.length === 1 ? 'entry' : 'entries'}</span>
                                 </div>
 
                                 {/* Entry list */}
