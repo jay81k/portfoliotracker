@@ -6531,13 +6531,14 @@ export default function PortfolioTracker() {
                                 )}
 
                                 {/* Sort toggles */}
-                                <div style={{ padding: '7px 14px', borderBottom: `1px solid ${T.border}`, display: 'flex', gap: '4px', flexShrink: 0 }}>
+                                <div style={{ padding: '5px 14px', borderBottom: `1px solid ${T.border}`, display: 'flex', gap: '12px', flexShrink: 0 }}>
                                     {[
-                                        { field: 'symbol', asc: 'A → Z', desc: 'Z → A' },
-                                        { field: 'date',   asc: 'Oldest', desc: 'Newest' },
+                                        { field: 'symbol', asc: 'A → Z', desc: 'Z → A', inactive: 'A → Z' },
+                                        { field: 'date',   asc: 'Oldest', desc: 'Newest', inactive: 'Newest' },
                                     ].map(s => {
                                         const active = journalSortField === s.field;
-                                        const label = active ? (journalSortDir === 'asc' ? s.asc : s.desc) : (s.field === 'date' ? 'Date' : 'A → Z');
+                                        const label = active ? (journalSortDir === 'asc' ? s.asc : s.desc) : s.inactive;
+                                        const arrow = active ? (journalSortDir === 'asc' ? ' ↑' : ' ↓') : '';
                                         return (
                                             <button key={s.field}
                                                 onClick={() => {
@@ -6549,14 +6550,12 @@ export default function PortfolioTracker() {
                                                     }
                                                 }}
                                                 style={{
-                                                    flex: 1, padding: '3px 0', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.04em',
-                                                    border: `1px solid ${active ? T.blue : T.border}`,
-                                                    borderRadius: '4px', cursor: 'pointer',
-                                                    background: active ? (isDark ? 'rgba(0,204,255,0.07)' : 'rgba(0,150,200,0.07)') : 'transparent',
-                                                    color: active ? T.blue : T.textMuted,
-                                                    fontFamily: 'inherit',
+                                                    padding: 0, fontSize: '0.65rem', fontWeight: active ? '700' : '500',
+                                                    letterSpacing: '0.03em', border: 'none', background: 'transparent',
+                                                    cursor: 'pointer', color: active ? T.textSecondary : T.textFaint,
+                                                    fontFamily: 'inherit', transition: 'color 0.12s',
                                                 }}>
-                                                {label} {active ? (journalSortDir === 'asc' ? '↑' : '↓') : ''}
+                                                {label}{arrow}
                                             </button>
                                         );
                                     })}
