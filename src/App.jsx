@@ -179,13 +179,6 @@ export default function PortfolioTracker() {
             const [customStartDate, setCustomStartDate] = useState('');
             const [customEndDate, setCustomEndDate] = useState('');
             const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
-            const [isDatePickerActive, setIsDatePickerActive] = useState(false);
-            const [tempStartDay, setTempStartDay] = useState('');
-            const [tempStartYear, setTempStartYear] = useState('');
-            const [tempEndDay, setTempEndDay] = useState('');
-            const [tempEndYear, setTempEndYear] = useState('');
-            const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-            const [showDataMenu, setShowDataMenu] = useState(false);
             const [fetchingName, setFetchingName] = useState(false);
             const [portfolios, setPortfolios] = useState(() => {
                 try {
@@ -438,7 +431,6 @@ export default function PortfolioTracker() {
                     const cacheKey = `symbol_name_${cleanSymbol}`;
                     const cached = localStorage.getItem(cacheKey);
                     if (cached) {
-                        console.log(`Using cached name for ${cleanSymbol}: ${cached}`);
                         return cached;
                     }
                 } catch (e) {
@@ -465,7 +457,6 @@ export default function PortfolioTracker() {
                                 // Prefer longname, fallback to shortname
                                 const name = quote.longname || quote.shortname;
                                 if (name && name.length > 1) {
-                                    console.log(`Found name via Yahoo Finance: ${name}`);
                                     // Cache the result for future use
                                     try {
                                         localStorage.setItem(`symbol_name_${cleanSymbol}`, name);
@@ -509,7 +500,6 @@ export default function PortfolioTracker() {
                 setTrades([]);
                 setNewPortfolioName('');
                 setShowAddPortfolio(false);
-                setShowSettingsMenu(false);
             };
 
             const handleSwitchPortfolio = (id) => {
@@ -616,7 +606,6 @@ export default function PortfolioTracker() {
                         }
                         
                         if (currentPrice && currentPrice > 0) {
-                            console.log(`Got price for ${symbol}: $${currentPrice}, prev close: $${previousClose}`);
                             return { currentPrice, previousClose };
                         }
                     } catch (e) {
@@ -662,10 +651,8 @@ export default function PortfolioTracker() {
                     // Fetch name for ALL trades with this symbol that don't have a name (not just open)
                     const tradesNeedingName = updatedTrades.filter(t => t.symbol === symbol && (!t.name || t.name.trim() === ''));
                     if (tradesNeedingName.length > 0) {
-                        console.log(`Fetching name for ${symbol} (${tradesNeedingName.length} trades need it)`);
                         const name = await fetchSymbolName(symbol);
                         if (name) {
-                            console.log(`Got name: ${name}, updating trades`);
                             tradesNeedingName.forEach(trade => {
                                 trade.name = name;
                             });
@@ -679,7 +666,6 @@ export default function PortfolioTracker() {
                 
                 // Save updated trades if any names were added
                 if (namesUpdated) {
-                    console.log('Saving trades with updated names...');
                     await saveTrades(updatedTrades);
                 }
                 
