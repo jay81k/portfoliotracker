@@ -171,6 +171,7 @@ export default function PortfolioTracker() {
             const [journalSortDir, setJournalSortDir] = useState('desc');
             const [journalEditingNotes, setJournalEditingNotes] = useState(null);
             const [journalCamOpen, setJournalCamOpen] = useState(false);
+            const [journalActivityExpanded, setJournalActivityExpanded] = useState(false);
             const [sortColumn, setSortColumn] = useState(null);
             const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
             const [searchTerm, setSearchTerm] = useState('');
@@ -6732,6 +6733,62 @@ export default function PortfolioTracker() {
                                                     </div>
                                                 ))}
                                             </div>
+
+                                            {/* Trade Activity — only if partial exits or adds exist */}
+                                            {(() => {
+                                                const exits = t.partialExits || [];
+                                                const adds  = t.partialAdds  || [];
+                                                if (exits.length === 0 && adds.length === 0) return null;
+                                                const totalEvents = exits.length + adds.length;
+                                                // Build chronological event list
+                                                const events = [
+                                                    { type: 'entry', date: t.entryDate, qty: t.originalQty || t.qty, price: t.entryPrice, pl: null },
+                                                    ...adds.map(a => ({ type: 'add', date: a.date, qty: a.qty, price: a.price, pl: null })),
+                                                    ...exits.map(e => ({ type: 'exit', date: e.exitDate, qty: e.qty, price: e.exitPrice, pl: e.profit })),
+                                                ].sort((a, b) => a.date > b.date ? 1 : -1);
+                                                const typeStyle = {
+                                                    entry: { label: 'Entry', color: T.green,  bg: isDark ? 'rgba(0,232,122,0.1)'  : 'rgba(5,150,105,0.1)'  },
+                                                    add:   { label: 'Add',   color: T.amber,  bg: isDark ? 'rgba(255,170,0,0.1)'  : 'rgba(217,119,6,0.1)'  },
+                                                    exit:  { label: 'Exit',  color: T.red,    bg: isDark ? 'rgba(255,68,68,0.1)'  : 'rgba(220,38,38,0.08)' },
+                                                };
+                                                return (
+                                                    <div style={{ marginBottom: '22px' }}>
+                                                        <div
+                                                            onClick={() => setJournalActivityExpanded(p => !p)}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', marginBottom: journalActivityExpanded ? '10px' : 0 }}>
+                                                            <span style={{ fontSize: '0.6rem', color: T.textFaint, transition: 'transform 0.15s', display: 'inline-block', transform: journalActivityExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                                                            <span style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.68rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Trade Activity</span>
+                                                            <span style={{ fontSize: '0.6rem', fontWeight: '700', color: T.amber, background: isDark ? 'rgba(255,170,0,0.1)' : 'rgba(217,119,6,0.08)', border: `1px solid ${isDark ? 'rgba(255,170,0,0.2)' : 'rgba(217,119,6,0.2)'}`, padding: '1px 6px', borderRadius: '20px' }}>{totalEvents} event{totalEvents > 1 ? 's' : ''}</span>
+                                                        </div>
+                                                        {journalActivityExpanded && (
+                                                            <div style={{ border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden' }}>
+                                                                {/* Header */}
+                                                                <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr 1fr 1fr 1fr', background: T.surfaceBg, borderBottom: `1px solid ${T.border}` }}>
+                                                                    {['Type','Date','Qty','Price','P/L'].map(h => (
+                                                                        <div key={h} style={{ padding: '5px 10px', fontSize: '0.56rem', fontWeight: '700', color: T.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</div>
+                                                                    ))}
+                                                                </div>
+                                                                {events.map((ev, i) => {
+                                                                    const s = typeStyle[ev.type];
+                                                                    return (
+                                                                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '70px 1fr 1fr 1fr 1fr', borderBottom: i < events.length - 1 ? `1px solid ${T.border}` : 'none' }}>
+                                                                            <div style={{ padding: '7px 10px' }}>
+                                                                                <span style={{ fontSize: '0.58rem', fontWeight: '700', letterSpacing: '0.05em', textTransform: 'uppercase', color: s.color, background: s.bg, padding: '2px 6px', borderRadius: '3px' }}>{s.label}</span>
+                                                                            </div>
+                                                                            <div style={{ padding: '7px 10px', fontFamily: "'DM Mono', monospace", fontSize: '0.73rem', color: T.textSecondary }}>{ev.date}</div>
+                                                                            <div style={{ padding: '7px 10px', fontFamily: "'DM Mono', monospace", fontSize: '0.73rem', color: T.textSecondary }}>{ev.qty}</div>
+                                                                            <div style={{ padding: '7px 10px', fontFamily: "'DM Mono', monospace", fontSize: '0.73rem', color: T.textSecondary }}>${parseFloat(ev.price).toFixed(2)}</div>
+                                                                            <div style={{ padding: '7px 10px', fontFamily: "'DM Mono', monospace", fontSize: '0.73rem', color: ev.pl != null ? (ev.pl >= 0 ? T.green : T.red) : T.textFaint }}>
+                                                                                {ev.pl != null ? `${ev.pl >= 0 ? '+' : ''}$${ev.pl.toFixed(2)}` : '—'}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {/* Screenshots strip */}
                                             {t.screenshotUrls?.length > 0 && (
