@@ -5797,64 +5797,64 @@ export default function PortfolioTracker() {
                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <thead>
                                         <tr style={{ background: T.surfaceBg, borderBottom: `1px solid ${T.border}` }}>
-                                            <th onClick={() => handleSort('symbol')} style={{ padding: '0.6rem 0.7rem', textAlign: 'left', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                            <th onClick={() => handleSort('symbol')} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                 Symbol {sortColumn === 'symbol' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th onClick={() => handleSort('name')} style={{ padding: '0.6rem 0.7rem', textAlign: 'left', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                            <th onClick={() => handleSort('name')} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                 Name {sortColumn === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
                                             {showSplitQtyColumns ? (
                                                 <>
-                                                    <th onClick={() => handleSort('originalQty')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                                    <th onClick={() => handleSort('originalQty')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                         Orig Qty {sortColumn === 'originalQty' && (sortDirection === 'asc' ? '↑' : '↓')}
                                                     </th>
-                                                    <th onClick={() => handleSort('qty')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                                    <th onClick={() => handleSort('qty')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                         Remaining {sortColumn === 'qty' && (sortDirection === 'asc' ? '↑' : '↓')}
                                                     </th>
                                                 </>
                                             ) : (
-                                                <th onClick={() => handleSort('qty')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                                <th onClick={() => handleSort('qty')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                     Qty {sortColumn === 'qty' && (sortDirection === 'asc' ? '↑' : '↓')}
                                                 </th>
                                             )}
-                                            <th onClick={() => handleSort('entryPrice')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                            <th onClick={() => handleSort('entryPrice')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                 Avg Cost {sortColumn === 'entryPrice' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th onClick={() => handleSort('exitPrice')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                            <th onClick={() => handleSort('exitPrice')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                 {tradeView === 'open' ? 'Last' : 'Exit'} {sortColumn === 'exitPrice' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
                                             {showChgColumn && (
-                                                <th onClick={() => handleSort('chg')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                                <th onClick={() => handleSort('chg')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                     Chg {sortColumn === 'chg' && (sortDirection === 'asc' ? '↑' : '↓')}
                                                 </th>
                                             )}
                                             {showChgColumn && (
-                                                <th onClick={() => handleSort('todaysProfit')} title="Today's profit" style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                                                <th onClick={() => handleSort('todaysProfit')} title="Today's profit" style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                                                     Profit <span style={{ fontSize: '0.65rem', color: T.textFaint, fontWeight: '400', borderRadius: '50%', border: `1px solid ${T.textFaint}`, padding: '0px 3px', marginLeft: '2px', verticalAlign: 'middle' }}>?</span> {sortColumn === 'todaysProfit' && (sortDirection === 'asc' ? '↑' : '↓')}
                                                 </th>
                                             )}
                                             {showChgColumn && (
-                                                <th style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                                                <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', userSelect: 'none', whiteSpace: 'nowrap' }}>
                                                     Day %
                                                 </th>
                                             )}
-                                            <th onClick={() => handleSort('totalChg')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                            <th onClick={() => handleSort('totalChg')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                 Total Chg {sortColumn === 'totalChg' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th onClick={() => handleSort('changePercent')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                            <th onClick={() => handleSort('changePercent')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                 Chg % {sortColumn === 'changePercent' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th onClick={() => handleSort('marketValue')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                            <th onClick={() => handleSort('marketValue')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                 Market Value {sortColumn === 'marketValue' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th onClick={() => handleSort('profit')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                            <th onClick={() => handleSort('profit')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                 Profit {sortColumn === 'profit' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th onClick={() => handleSort('totalProfit')} style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                            <th onClick={() => handleSort('totalProfit')} style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
                                                 Total Profit {sortColumn === 'totalProfit' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th style={{ padding: '0.6rem 0.7rem', textAlign: 'left', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Status</th>
-                                            <th style={{ padding: '0.6rem 0.7rem', textAlign: 'center', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Actions</th>
+                                            <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Status</th>
+                                            <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', color: T.textMuted, fontWeight: '600', textTransform: 'uppercase' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -5883,25 +5883,25 @@ export default function PortfolioTracker() {
                                                 onMouseEnter={e => e.currentTarget.style.background = T.hoverBg}
                                                 onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? T.tableRowEven : T.tableRowOdd}
                                             >
-                                                <td onClick={() => (partialExits.length > 0 || (trade.partialAdds || []).length > 0) && setExpandedTrade(expandedTrade === trade.id ? null : trade.id)} style={{ padding: '0.6rem 0.7rem', fontWeight: '600', fontSize: '0.95rem', cursor: (partialExits.length > 0 || (trade.partialAdds || []).length > 0) ? 'pointer' : 'default' }}>
+                                                <td onClick={() => (partialExits.length > 0 || (trade.partialAdds || []).length > 0) && setExpandedTrade(expandedTrade === trade.id ? null : trade.id)} style={{ padding: '1rem', fontWeight: '600', fontSize: '0.95rem', cursor: (partialExits.length > 0 || (trade.partialAdds || []).length > 0) ? 'pointer' : 'default' }}>
                                                     {trade.direction === 'short' && (
                                                         <span style={{ display: 'inline-block', background: T.redBg, color: T.red, border: `1px solid ${T.red}`, borderRadius: '3px', fontSize: '0.65rem', fontWeight: '700', padding: '1px 4px', marginRight: '0.4rem', verticalAlign: 'middle', lineHeight: '1.4' }}>S</span>
                                                     )}
                                                     {trade.symbol}
                                                 </td>
-                                                <td style={{ padding: '0.6rem 0.7rem', color: T.textSecondary, fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trade.name}</td>
+                                                <td style={{ padding: '1rem', color: T.textSecondary, fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trade.name}</td>
                                                 {showSplitQtyColumns ? (
                                                     <>
-                                                        <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem' }}>{originalQty}</td>
-                                                        <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem', color: !isOpen ? T.textMuted : trade.qty < originalQty ? T.amber : T.textPrimary }}>
+                                                        <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem' }}>{originalQty}</td>
+                                                        <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem', color: !isOpen ? T.textMuted : trade.qty < originalQty ? T.amber : T.textPrimary }}>
                                                             {!isOpen ? 0 : trade.qty}
                                                         </td>
                                                     </>
                                                 ) : (
-                                                    <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem' }}>{trade.qty}</td>
+                                                    <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem' }}>{trade.qty}</td>
                                                 )}
-                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem' }}>${trade.entryPrice % 1 === 0 ? trade.entryPrice.toFixed(2) : parseFloat(trade.entryPrice.toFixed(4)).toString()}</td>
-                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem' }}>
+                                                <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem' }}>${trade.entryPrice % 1 === 0 ? trade.entryPrice.toFixed(2) : parseFloat(trade.entryPrice.toFixed(4)).toString()}</td>
+                                                <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem' }}>
                                                     {isOpen ? (
                                                         editingPrice === trade.symbol ? (
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', justifyContent: 'flex-end' }}>
@@ -5942,7 +5942,7 @@ export default function PortfolioTracker() {
                                                     )}
                                                 </td>
                                                 {showChgColumn && (
-                                                    <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
+                                                    <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
                                                         {(() => {
                                                             if (!isOpen) return null;
                                                             const prevClose = prevClosePrices[trade.symbol];
@@ -5959,7 +5959,7 @@ export default function PortfolioTracker() {
                                                     </td>
                                                 )}
                                                 {showChgColumn && (
-                                                    <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
+                                                    <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
                                                         {(() => {
                                                             if (!isOpen) return null;
                                                             const prevClose = prevClosePrices[trade.symbol];
@@ -5977,7 +5977,7 @@ export default function PortfolioTracker() {
                                                     </td>
                                                 )}
                                                 {showChgColumn && (
-                                                    <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
+                                                    <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
                                                         {(() => {
                                                             if (!isOpen) return null;
                                                             const prevClose = prevClosePrices[trade.symbol];
@@ -5993,7 +5993,7 @@ export default function PortfolioTracker() {
                                                         })()}
                                                     </td>
                                                 )}
-                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
+                                                <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
                                                     {(() => {
                                                         const totalChg = trade.direction === 'short'
                                                             ? trade.entryPrice - currentPrice
@@ -6005,7 +6005,7 @@ export default function PortfolioTracker() {
                                                         );
                                                     })()}
                                                 </td>
-                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
+                                                <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '600' }}>
                                                     {(() => {
                                                         const changePercent = trade.direction === 'short'
                                                             ? ((trade.entryPrice - currentPrice) / trade.entryPrice) * 100
@@ -6017,17 +6017,17 @@ export default function PortfolioTracker() {
                                                         );
                                                     })()}
                                                 </td>
-                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: T.blue }}>
+                                                <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: T.blue }}>
                                                     ${(trade.qty * currentPrice).toFixed(2)}
                                                 </td>
-                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: liveProfit >= 0 ? T.green : T.red }}>
+                                                <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: liveProfit >= 0 ? T.green : T.red }}>
                                                     {liveProfit >= 0 ? '+' : ''}${liveProfit.toFixed(2)}
                                                 </td>
-                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: totalProfit >= 0 ? T.green : T.red }}>
+                                                <td style={{ padding: '1rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: totalProfit >= 0 ? T.green : T.red }}>
                                                     {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
                                                     {trade.dividend > 0 && <div style={{ fontSize: '0.7rem', color: T.blue, marginTop: '2px' }}>+${trade.dividend.toFixed(2)} div</div>}
                                                 </td>
-                                                <td style={{ padding: '0.6rem 0.7rem' }}>
+                                                <td style={{ padding: '1rem' }}>
                                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '0.25rem 0.75rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', minWidth: '52px', textAlign: 'center', letterSpacing: '-0.02em',
                                                         background: isOpen ? T.blueBg : (liveProfit >= -5 && liveProfit <= 5 ? T.borderStrong : (liveProfit > 5 ? T.greenBgDim : T.redBg)),
                                                         color: isOpen ? T.blue : (liveProfit >= -5 && liveProfit <= 5 ? T.textMuted : (liveProfit > 5 ? T.green : T.red)) }}>
@@ -6035,7 +6035,7 @@ export default function PortfolioTracker() {
                                                         {isOpen ? 'OPEN' : (liveProfit >= -5 && liveProfit <= 5 ? 'EVEN' : (liveProfit > 5 ? 'WIN' : 'LOSS'))}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'center' }}>
+                                                <td style={{ padding: '1rem', textAlign: 'center' }}>
                                                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                                                         <button
                                                             title={(trade.screenshotUrls?.length > 0) ? 'View screenshots' : 'No screenshot'}
@@ -6054,7 +6054,7 @@ export default function PortfolioTracker() {
                                             </tr>
                                             {expandedTrade === trade.id && partialExits.length > 0 && (
                                                 <tr style={{ background: T.surfaceBg, borderBottom: `1px solid ${T.border}` }}>
-                                                    <td colSpan="14" style={{ padding: '0.6rem 0.7rem', background: T.surfaceBg }}>
+                                                    <td colSpan="14" style={{ padding: '1rem', background: T.surfaceBg }}>
                                                         <div style={{ marginLeft: '2rem' }}>
                                                             <div style={{ fontSize: '0.75rem', color: T.textMuted, marginBottom: '0.5rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Trade Activity</div>
                                                             {[...partialExits.map(pe => ({...pe, type:'exit'})), ...(trade.partialAdds||[]).map(pa => ({...pa, type:'add'}))].sort((a,b) => new Date(a.exitDate||a.date) - new Date(b.exitDate||b.date)).map(item => (
@@ -6235,7 +6235,7 @@ export default function PortfolioTracker() {
                                         ].sort((a, b) => new Date(a.exitDate || a.date) - new Date(b.exitDate || b.date));
                                         const exitReturn = (editingTrade.partialExits || []).reduce((sum, pe) => sum + pe.profit, 0);
                                         return (
-                                        <div style={{ background: T.panelBg, border: `1px solid ${T.borderStrong}`, borderRadius: '8px', padding: '0.6rem 0.7rem', marginTop: '1rem' }}>
+                                        <div style={{ background: T.panelBg, border: `1px solid ${T.borderStrong}`, borderRadius: '8px', padding: '1rem', marginTop: '1rem' }}>
                                             <div 
                                                 onClick={() => setTradeActivityExpanded(!tradeActivityExpanded)}
                                                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: tradeActivityExpanded ? '1rem' : '0', cursor: 'pointer', userSelect: 'none' }}
