@@ -5725,6 +5725,27 @@ export default function PortfolioTracker() {
                                             })()}
                                         </div>
                                     </div>
+                                    {(() => {
+                                        const openTrades = trades.filter(t => !t.exitDate);
+                                        const equity = openTrades.reduce((sum, trade) => {
+                                            const currentPrice = manualPrices[trade.symbol] || currentPrices[trade.symbol] || trade.entryPrice;
+                                            return sum + (trade.qty * currentPrice) + (trade.dividend || 0);
+                                        }, 0);
+                                        const _usdDep = (activeBalances.depositsUsd || []).reduce((s, d) => s + (parseFloat(d.amt) || 0), 0);
+                                        const _cadDep = (activeBalances.depositsCad || []).reduce((s, d) => s + (parseFloat(d.amt) || 0), 0);
+                                        const totalBal = ((parseFloat(activeBalances.usd) || 0) + (activeBalances.mode === 'current' ? _usdDep : 0))
+                                                       + ((parseFloat(activeBalances.cad) || 0) + (activeBalances.mode === 'current' ? _cadDep : 0));
+                                        if (!totalBal || totalBal === 0) return null;
+                                        const pctInvested = (equity / totalBal) * 100;
+                                        return (
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.7rem', color: T.textMuted, marginBottom: '0.25rem', textTransform: 'uppercase', fontWeight: '600' }}>% Invested</div>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: '700', color: isDark ? '#818cf8' : '#6366f1' }}>
+                                                    {pctInvested.toFixed(1)}%
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                     <div style={{ textAlign: 'center' }}>
                                         <div style={{ fontSize: '0.7rem', color: T.textMuted, marginBottom: '0.25rem', textTransform: 'uppercase', fontWeight: '600' }}>Today's P/L</div>
                                         <div style={{ fontSize: '1.5rem', fontWeight: '700', color: metrics.todaysPL >= 0 ? T.green : T.red }}>
