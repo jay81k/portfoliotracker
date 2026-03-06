@@ -5772,7 +5772,7 @@ export default function PortfolioTracker() {
                         </div>
 
                         <div style={{ background: T.panelBg, borderRadius: '8px', border: `1px solid ${T.border}`, overflow: 'hidden' }}>
-                            <div style={{ overflowX: 'auto' }}>
+                            <div style={{ overflowX: 'hidden' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <thead>
                                         <tr style={{ background: T.surfaceBg, borderBottom: `1px solid ${T.border}` }}>
