@@ -1300,6 +1300,12 @@ export default function PortfolioTracker() {
                     symbol: formData.symbol.toUpperCase().trim(),
                     name: formData.name.trim(),
                     qty: parseFloat(formData.qty),
+                    originalQty: (() => {
+                        const newQty = parseFloat(formData.qty);
+                        const partialExitQty = (editingTrade.partialExits || []).reduce((s, pe) => s + (pe.qty || 0), 0);
+                        const partialAddQty = (editingTrade.partialAdds || []).reduce((s, pa) => s + (pa.qty || 0), 0);
+                        return partialExitQty > 0 ? newQty + partialExitQty - partialAddQty : newQty;
+                    })(),
                     entryPrice: parseFloat(formData.entryPrice),
                     entryDate: formData.entryDate,
                     exitDate: formData.exitDate || null,
