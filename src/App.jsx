@@ -2296,11 +2296,11 @@ export default function PortfolioTracker() {
                                 {totalCount > 0 ? `${totalCount}/10` : 'optional'}
                             </span>
                         </label>
-                        <div style={{ flex: 1, minHeight: '108px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                        <div style={{ flex: 1, minHeight: '80px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                             {allItems.length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                                     {allItems.map((item, idx) => (
-                                        <div key={idx} style={{ position: 'relative', width: 54, height: 40, borderRadius: '3px', overflow: 'hidden', border: `1px solid ${item.type === 'blob' ? T.amber : T.borderStrong}`, flexShrink: 0 }}>
+                                        <div key={idx} style={{ position: 'relative', width: 80, height: 60, borderRadius: '3px', overflow: 'hidden', border: `1px solid ${item.type === 'blob' ? T.amber : T.borderStrong}`, flexShrink: 0 }}>
                                             <img src={item.src} alt={`screenshot ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
                                                 onClick={() => setLightboxData({ srcs: allItems.map(i => i.src), index: idx })}
                                             />
@@ -2319,7 +2319,7 @@ export default function PortfolioTracker() {
                                 </div>
                             )}
                             {!atMax && (
-                                <div style={{ flex: allItems.length === 0 ? 1 : 0, minHeight: allItems.length === 0 ? '108px' : 'unset', border: `1px dashed ${isPasteActive ? T.blue : T.borderStrong}`, borderRadius: '4px', background: isPasteActive ? 'rgba(0,204,255,0.04)' : T.panelBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.55rem', transition: 'all 0.15s' }}>
+                                <div style={{ flex: allItems.length === 0 ? 1 : 0, minHeight: allItems.length === 0 ? '80px' : 'unset', border: `1px dashed ${isPasteActive ? T.blue : T.borderStrong}`, borderRadius: '4px', background: isPasteActive ? 'rgba(0,204,255,0.04)' : T.panelBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.55rem', transition: 'all 0.15s' }}>
                                     {isPasteActive ? (
                                         <>
                                             <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,204,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.blue }}><ClipboardIcon size={13} /></div>
@@ -2487,9 +2487,9 @@ export default function PortfolioTracker() {
                                             );
                                         })}
                                     </div>
-                                    <div style={{ border: `1px solid ${T.borderMid}`, borderRadius: '0 0 4px 4px', background: T.panelBg, minHeight: '138px', padding: '0.75rem' }}>
+                                    <div style={{ border: `1px solid ${T.borderMid}`, borderRadius: '0 0 4px 4px', background: T.panelBg, minHeight: '110px', padding: '0.75rem' }}>
                                         {notesTab === 'notes' ? (
-                                            <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ width: '100%', minHeight: '108px', background: 'transparent', border: 'none', outline: 'none', color: T.textPrimary, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'none', padding: 0, lineHeight: '1.6', boxSizing: 'border-box' }} />
+                                            <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ width: '100%', minHeight: '80px', background: 'transparent', border: 'none', outline: 'none', color: T.textPrimary, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'none', padding: 0, lineHeight: '1.6', boxSizing: 'border-box' }} />
                                         ) : (
                                             <ScreenshotSection fileInputRef={screenshotFileRef} />
                                         )}
@@ -6221,9 +6221,9 @@ export default function PortfolioTracker() {
                                                 );
                                             })}
                                         </div>
-                                        <div style={{ border: `1px solid ${T.borderMid}`, borderRadius: '0 0 4px 4px', background: T.panelBg, minHeight: '138px', padding: '0.75rem' }}>
+                                        <div style={{ border: `1px solid ${T.borderMid}`, borderRadius: '0 0 4px 4px', background: T.panelBg, minHeight: '110px', padding: '0.75rem' }}>
                                             {notesTab === 'notes' ? (
-                                                <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ width: '100%', minHeight: '108px', background: 'transparent', border: 'none', outline: 'none', color: T.textPrimary, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'none', padding: 0, lineHeight: '1.6', boxSizing: 'border-box' }} />
+                                                <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ width: '100%', minHeight: '80px', background: 'transparent', border: 'none', outline: 'none', color: T.textPrimary, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'none', padding: 0, lineHeight: '1.6', boxSizing: 'border-box' }} />
                                             ) : (
                                                 <ScreenshotSection fileInputRef={screenshotFileEditRef} />
                                             )}
