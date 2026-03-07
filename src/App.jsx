@@ -6507,7 +6507,7 @@ export default function PortfolioTracker() {
                                         <span style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: T.textFaint, fontSize: '12px', pointerEvents: 'none' }}>⌕</span>
                                         <input value={journalSearch} onChange={e => setJournalSearch(e.target.value)}
                                             placeholder="Search notes, #tags, symbols..."
-                                            style={{ width: '100%', padding: '6px 9px 6px 26px', fontSize: '0.78rem', border: `1px solid ${T.border}`, borderRadius: '5px', background: T.surfaceBg, color: T.textPrimary, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                                            style={{ width: '100%', padding: '6px 9px 6px 26px', fontSize: '0.78rem', border: `1px solid ${T.borderStrong}`, borderRadius: '5px', background: T.surfaceBg, color: T.textPrimary, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
                                     </div>
 
                                     {/* Tag strip */}
