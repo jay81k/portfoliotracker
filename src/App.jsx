@@ -1943,7 +1943,12 @@ export default function PortfolioTracker() {
                         tag: d.tag.replace('#',''),
                     };
                 });
-                if (tagData.length === 0) return null;
+                if (tagData.length === 0) return (
+                    <div style={{ background: T.panelBg, borderRadius: '8px', padding: '1.5rem', border: `1px solid ${T.border}`, marginBottom: '2rem' }}>
+                        <div style={{ fontSize: '0.85rem', color: T.textMuted, textTransform: 'uppercase', fontWeight: '600', fontFamily: 'inherit', marginBottom: '1rem' }}>Performance by Tag</div>
+                        <div style={{ color: T.textMuted, fontSize: '0.85rem' }}>Add <span style={{ fontFamily: "'DM Mono', monospace", color: T.textSecondary }}>#tags</span> to your trade notes to see performance by setup.</div>
+                    </div>
+                );
 
                 const tagMetrics = [
                     { key: 'totalPnl',     label: 'Total P&L' },
