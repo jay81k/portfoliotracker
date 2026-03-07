@@ -116,6 +116,7 @@ export default function PortfolioTracker() {
             const [calSymbolPopover, setCalSymbolPopover] = useState(null);
             const [statsDistMonth, setStatsDistMonth] = useState('ALL');
             const [statsTrackerYear, setStatsTrackerYear] = useState(null);
+            const [tagMetric, setTagMetric] = useState('totalPnl');
             const [tradeView, setTradeView] = useState('all');
             const [timeframe, setTimeframe] = useState('ALL');
             const [currentPrices, setCurrentPrices] = useState({});
@@ -5112,72 +5113,67 @@ export default function PortfolioTracker() {
                                             { key: 'avgHoldDays',  label: 'Avg Hold' },
                                         ];
 
-                                        const TagChart = () => {
-                                            const [tagMetric, setTagMetric] = React.useState('totalPnl');
-                                            const sorted = [...tagData].sort((a, b) => {
-                                                if (tagMetric === 'avgLoss') return a[tagMetric] - b[tagMetric];
-                                                return b[tagMetric] - a[tagMetric];
-                                            });
-                                            const finiteVals = sorted.map(d => isFinite(d[tagMetric]) ? Math.abs(d[tagMetric]) : 0);
-                                            const max = Math.max(...finiteVals) || 1;
+                                        const tagSorted = [...tagData].sort((a, b) => {
+                                            if (tagMetric === 'avgLoss') return a[tagMetric] - b[tagMetric];
+                                            return b[tagMetric] - a[tagMetric];
+                                        });
+                                        const tagFiniteVals = tagSorted.map(d => isFinite(d[tagMetric]) ? Math.abs(d[tagMetric]) : 0);
+                                        const tagMax = Math.max(...tagFiniteVals) || 1;
 
-                                            const fmt = (key, val) => {
-                                                if (key === 'totalPnl' || key === 'avgWin') return `${val >= 0 ? '+' : ''}$${Math.round(val).toLocaleString()}`;
-                                                if (key === 'avgLoss') return `$${Math.round(val).toLocaleString()}`;
-                                                if (key === 'winRate') return `${val.toFixed(1)}%`;
-                                                if (key === 'profitFactor') return val === Infinity ? '∞' : val.toFixed(2);
-                                                if (key === 'avgHoldDays') return `${Math.round(val)}d`;
-                                                return val;
-                                            };
-                                            const getColor = (key, val) => {
-                                                if (key === 'totalPnl' || key === 'avgWin') return val >= 0 ? T.green : T.red;
-                                                if (key === 'avgLoss') return T.red;
-                                                if (key === 'winRate') return val >= 65 ? T.green : val >= 50 ? T.amber : T.red;
-                                                if (key === 'profitFactor') return val >= 2 ? T.green : val >= 1 ? T.amber : T.red;
-                                                if (key === 'avgHoldDays') return T.blue;
-                                                return T.blue;
-                                            };
+                                        const fmtTag = (key, val) => {
+                                            if (key === 'totalPnl' || key === 'avgWin') return `${val >= 0 ? '+' : ''}$${Math.round(val).toLocaleString()}`;
+                                            if (key === 'avgLoss') return `$${Math.round(val).toLocaleString()}`;
+                                            if (key === 'winRate') return `${val.toFixed(1)}%`;
+                                            if (key === 'profitFactor') return val === Infinity ? '∞' : val.toFixed(2);
+                                            if (key === 'avgHoldDays') return `${Math.round(val)}d`;
+                                            return val;
+                                        };
+                                        const tagColor = (key, val) => {
+                                            if (key === 'totalPnl' || key === 'avgWin') return val >= 0 ? T.green : T.red;
+                                            if (key === 'avgLoss') return T.red;
+                                            if (key === 'winRate') return val >= 65 ? T.green : val >= 50 ? T.amber : T.red;
+                                            if (key === 'profitFactor') return val >= 2 ? T.green : val >= 1 ? T.amber : T.red;
+                                            return T.blue;
+                                        };
 
-                                            return (
-                                                <div style={{ background: T.panelBg, borderRadius: '8px', padding: '1.5rem', border: `1px solid ${T.border}`, marginBottom: '2rem' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                                                        <div style={{ fontSize: '0.85rem', color: T.textMuted, textTransform: 'uppercase', fontWeight: '600' }}>Performance by Tag</div>
-                                                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                                                            {tagMetrics.map(m => (
-                                                                <button key={m.key} onClick={() => setTagMetric(m.key)} style={{
-                                                                    padding: '0.25rem 0.65rem', borderRadius: '4px',
-                                                                    border: `1px solid ${tagMetric === m.key ? T.green : T.borderStrong}`,
-                                                                    background: tagMetric === m.key ? 'rgba(34,197,94,0.1)' : T.raisedBg,
-                                                                    color: tagMetric === m.key ? T.green : T.textSecondary,
-                                                                    fontSize: '0.68rem', fontWeight: tagMetric === m.key ? '700' : '500',
-                                                                    fontFamily: "'DM Mono', monospace", cursor: 'pointer', letterSpacing: '0.03em',
-                                                                }}>{m.label}</button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                        {sorted.map((d) => {
-                                                            const val = d[tagMetric];
-                                                            const pct = !isFinite(val) ? 100 : (max > 0 ? (Math.abs(val) / max) * 100 : 0);
-                                                            const color = getColor(tagMetric, val);
-                                                            return (
-                                                                <div key={d.tag} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                                    <div style={{ width: 100, textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: '0.72rem', fontWeight: '700', color: T.textSecondary, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.tag}</div>
-                                                                    <div style={{ flex: 1, position: 'relative', height: 26, background: T.raisedBg, borderRadius: '3px', overflow: 'hidden', border: `1px solid ${T.border}` }}>
-                                                                        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${pct}%`, background: `${color}1a`, borderRight: `2px solid ${color}`, transition: 'width 0.35s ease' }} />
-                                                                        <div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.5rem', fontFamily: "'DM Mono', monospace", fontSize: '0.7rem', fontWeight: '700', color }}>
-                                                                            {fmt(tagMetric, val)}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div style={{ width: 38, textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: '0.65rem', color: T.textMuted, flexShrink: 0 }}>{d.trades}t</div>
-                                                                </div>
-                                                            );
-                                                        })}
+                                        return (
+                                            <div style={{ background: T.panelBg, borderRadius: '8px', padding: '1.5rem', border: `1px solid ${T.border}`, marginBottom: '2rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                                    <div style={{ fontSize: '0.85rem', color: T.textMuted, textTransform: 'uppercase', fontWeight: '600', fontFamily: 'inherit' }}>Performance by Tag</div>
+                                                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                                        {tagMetrics.map(m => (
+                                                            <button key={m.key} onClick={() => setTagMetric(m.key)} style={{
+                                                                padding: '0.25rem 0.65rem', borderRadius: '4px',
+                                                                border: `1px solid ${tagMetric === m.key ? T.green : T.borderStrong}`,
+                                                                background: tagMetric === m.key ? 'rgba(34,197,94,0.1)' : T.raisedBg,
+                                                                color: tagMetric === m.key ? T.green : T.textSecondary,
+                                                                fontSize: '0.72rem', fontWeight: tagMetric === m.key ? '700' : '500',
+                                                                fontFamily: 'inherit', cursor: 'pointer',
+                                                            }}>{m.label}</button>
+                                                        ))}
                                                     </div>
                                                 </div>
-                                            );
-                                        };
-                                        return <TagChart />;
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    {tagSorted.map((d) => {
+                                                        const val = d[tagMetric];
+                                                        const pct = !isFinite(val) ? 100 : (tagMax > 0 ? (Math.abs(val) / tagMax) * 100 : 0);
+                                                        const col = tagColor(tagMetric, val);
+                                                        return (
+                                                            <div key={d.tag} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                                <div style={{ width: 100, textAlign: 'right', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: '600', color: T.textSecondary, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.tag}</div>
+                                                                <div style={{ flex: 1, position: 'relative', height: 26, background: T.raisedBg, borderRadius: '3px', overflow: 'hidden', border: `1px solid ${T.border}` }}>
+                                                                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${pct}%`, background: `${col}1a`, borderRight: `2px solid ${col}`, transition: 'width 0.35s ease' }} />
+                                                                    <div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '0.5rem', fontFamily: "'DM Mono', monospace", fontSize: '0.72rem', fontWeight: '700', color: col }}>
+                                                                        {fmtTag(tagMetric, val)}
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ width: 38, textAlign: 'right', fontFamily: 'inherit', fontSize: '0.72rem', color: T.textMuted, flexShrink: 0 }}>{d.trades}t</div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
                                     })()}
 
                                     {/* Equity Curve + Drawdown charts */}
