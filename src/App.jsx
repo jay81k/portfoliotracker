@@ -2282,8 +2282,13 @@ export default function PortfolioTracker() {
                     ...pendingBlobs.map(blob => ({ type: 'blob', src: blob instanceof Blob ? URL.createObjectURL(blob) : null }))
                 ].filter(item => item.src);
                 const removeItem = (idx) => {
-                    if (idx < screenshotUrls.length) {
-                        setScreenshotUrls(prev => prev.filter((_, i) => i !== idx));
+                    const isUploaded = idx < screenshotUrls.length;
+                    if (isUploaded) {
+                        showConfirm(
+                            'Delete Screenshot',
+                            'Are you sure you want to remove this screenshot?',
+                            () => setScreenshotUrls(prev => prev.filter((_, i) => i !== idx))
+                        );
                     } else {
                         setPendingBlobs(prev => prev.filter((_, i) => i !== (idx - screenshotUrls.length)));
                     }
