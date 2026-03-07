@@ -6806,14 +6806,18 @@ export default function PortfolioTracker() {
                                                     <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.68rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Screenshots</div>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                                         {t.screenshotUrls.map((url, idx) => (
-                                                            <div key={url} style={{ position: 'relative', width: 160, height: 116, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${T.borderStrong}`, flexShrink: 0 }}>
+                                                            <div key={url} style={{ position: 'relative', width: 220, height: 160, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${T.borderStrong}`, flexShrink: 0 }}
+                                                                onMouseEnter={e => { const btn = e.currentTarget.querySelector('button'); if (btn) btn.style.opacity = '1'; }}
+                                                                onMouseLeave={e => { const btn = e.currentTarget.querySelector('button'); if (btn) { btn.style.opacity = '0'; btn.style.background = 'rgba(0,0,0,0.35)'; btn.style.color = 'rgba(255,255,255,0.5)'; } }}>
                                                                 <img src={url} alt={`screenshot ${idx + 1}`}
                                                                     onClick={() => setLightboxData({ srcs: t.screenshotUrls, index: idx })}
                                                                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
                                                                 <button
                                                                     onClick={() => setConfirmDialog({ title: 'Delete Screenshot', message: 'Are you sure you want to delete this screenshot? This cannot be undone.', onConfirm: () => deleteJournalScreenshot(t.id, url) })}
                                                                     title="Delete screenshot"
-                                                                    style={{ position: 'absolute', top: 3, right: 3, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.75)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: '900', lineHeight: 1 }}>
+                                                                    style={{ position: 'absolute', top: 5, right: 5, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: '900', lineHeight: 1, opacity: 0, transition: 'opacity 0.15s' }}
+                                                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.75)'; e.currentTarget.style.color = '#fff'; }}
+                                                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.35)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}>
                                                                     &#x2715;
                                                                 </button>
                                                             </div>
