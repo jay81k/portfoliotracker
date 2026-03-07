@@ -2319,7 +2319,7 @@ export default function PortfolioTracker() {
                                 </div>
                             )}
                             {!atMax && (
-                                <div style={{ flex: allItems.length === 0 ? 1 : 0, minHeight: allItems.length === 0 ? '80px' : 'unset', border: `1px dashed ${isPasteActive ? T.blue : T.borderStrong}`, borderRadius: '4px', background: isPasteActive ? 'rgba(0,204,255,0.04)' : T.panelBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.55rem', transition: 'all 0.15s' }}>
+                                <div style={{ flex: allItems.length === 0 ? 1 : 0, minHeight: allItems.length === 0 ? '80px' : 'unset', border: isPasteActive ? `1px dashed ${T.blue}` : 'none', borderRadius: '4px', background: isPasteActive ? 'rgba(0,204,255,0.04)' : 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.55rem', transition: 'all 0.15s' }}>
                                     {isPasteActive ? (
                                         <>
                                             <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,204,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.blue }}><ClipboardIcon size={13} /></div>
