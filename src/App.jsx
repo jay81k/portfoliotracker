@@ -6806,7 +6806,7 @@ export default function PortfolioTracker() {
                                                     <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", fontSize: '0.68rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Screenshots</div>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                                         {t.screenshotUrls.map((url, idx) => (
-                                                            <div key={url} style={{ position: 'relative', width: 220, height: 160, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${T.borderStrong}`, flexShrink: 0 }}
+                                                            <div key={url} style={{ position: 'relative', width: 160, height: 115, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${T.borderStrong}`, flexShrink: 0 }}
                                                                 onMouseEnter={e => { const btn = e.currentTarget.querySelector('button'); if (btn) btn.style.opacity = '1'; }}
                                                                 onMouseLeave={e => { const btn = e.currentTarget.querySelector('button'); if (btn) { btn.style.opacity = '0'; btn.style.background = 'rgba(0,0,0,0.35)'; btn.style.color = 'rgba(255,255,255,0.5)'; } }}>
                                                                 <img src={url} alt={`screenshot ${idx + 1}`}
