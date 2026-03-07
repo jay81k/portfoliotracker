@@ -137,6 +137,7 @@ export default function PortfolioTracker() {
             const [uploadingScreenshots, setUploadingScreenshots] = useState(false);
             const [isPasteActive, setIsPasteActive] = useState(false);
             const [lightboxData, setLightboxData] = useState(null);
+            const [notesTab, setNotesTab] = useState('notes'); // 'notes' | 'screenshots'
             const screenshotFileRef = useRef(null);                            // hidden file input ref (add modal)
             const screenshotFileEditRef = useRef(null);                        // hidden file input ref (edit modal)
             const journalScreenshotFileRef = useRef(null);                      // hidden file input ref (journal panel)
@@ -1073,6 +1074,7 @@ export default function PortfolioTracker() {
                 setShowAddTrade(false);
                 setScreenshotUrls([]); setPendingBlobs([]);
                 setIsPasteActive(false);
+                setNotesTab('notes');
                 resetFormData();
             };
 
@@ -1324,6 +1326,7 @@ export default function PortfolioTracker() {
                 setShowEditTrade(false); setEditingTrade(null);
                 setScreenshotUrls([]); setPendingBlobs([]);
                 setIsPasteActive(false);
+                setNotesTab('notes');
                 setFormData({ symbol: '', name: '', qty: '', entryPrice: '', entryDate: new Date().toISOString().split('T')[0],
                     exitDate: '', exitPrice: '', fees: '0', profit: '0', dividend: '0', notes: '', direction: 'long' });
             };
@@ -2403,7 +2406,7 @@ export default function PortfolioTracker() {
                         <div style={{ background: T.surfaceBg, borderRadius: '8px', padding: '2rem', maxWidth: '540px', width: '100%', border: `1px solid ${T.border}`, maxHeight: '90vh', overflow: 'auto' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
                                 <h3 style={{ margin: 0, fontSize: '1.5rem' }}>ADD TRADE</h3>
-                                <button onClick={() => { setShowAddTrade(false); resetFormData(); setScreenshotUrls([]); setPendingBlobs([]); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
+                                <button onClick={() => { setShowAddTrade(false); resetFormData(); setScreenshotUrls([]); setPendingBlobs([]); setIsPasteActive(false); setNotesTab('notes'); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.8fr 145px', gap: '1rem' }}>
@@ -2473,12 +2476,24 @@ export default function PortfolioTracker() {
                                     <div><label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Fees</label>
                                     <input type="number" step="0.01" value={formData.fees} onChange={(e) => setFormData({...formData, fees: e.target.value})} style={{ width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary }} /></div>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '1rem' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Notes</label>
-                                        <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ flex: 1, minHeight: '108px', width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary, fontFamily: 'inherit', resize: 'none' }} />
+                                <div>
+                                    <div style={{ display: 'flex', borderRadius: '4px 4px 0 0', overflow: 'hidden', border: `1px solid ${T.borderMid}`, borderBottom: 'none' }}>
+                                        {[['notes', 'Notes'], ['screenshots', 'Screenshots']].map(([id, lbl]) => {
+                                            const count = screenshotUrls.length + pendingBlobs.length;
+                                            return (
+                                                <button key={id} onClick={() => setNotesTab(id)} style={{ flex: 1, padding: '0.45rem 0.75rem', background: notesTab === id ? T.panelBg : T.raisedBg, border: 'none', borderRight: id === 'notes' ? `1px solid ${T.borderMid}` : 'none', color: notesTab === id ? T.textPrimary : T.textMuted, fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: notesTab === id ? '700' : '500', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
+                                                    {lbl}{id === 'screenshots' && count > 0 && <span style={{ marginLeft: '0.35rem', fontSize: '0.65rem', background: 'rgba(56,189,248,0.15)', color: T.blue, border: '1px solid rgba(56,189,248,0.3)', borderRadius: '10px', padding: '0 0.35rem', fontWeight: '800' }}>{count}</span>}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
-                                    <ScreenshotSection fileInputRef={screenshotFileRef} />
+                                    <div style={{ border: `1px solid ${T.borderMid}`, borderRadius: '0 0 4px 4px', background: T.panelBg, minHeight: '138px', padding: '0.75rem' }}>
+                                        {notesTab === 'notes' ? (
+                                            <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ width: '100%', minHeight: '108px', background: 'transparent', border: 'none', outline: 'none', color: T.textPrimary, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'none', padding: 0, lineHeight: '1.6', boxSizing: 'border-box' }} />
+                                        ) : (
+                                            <ScreenshotSection fileInputRef={screenshotFileRef} />
+                                        )}
+                                    </div>
                                 </div>
                                 <button onClick={handleAddTrade} disabled={!formData.symbol || !formData.qty || !formData.entryPrice || !formData.entryDate} style={{ background: (!formData.symbol || !formData.qty || !formData.entryPrice || !formData.entryDate) ? T.borderStrong : T.green, color: (!formData.symbol || !formData.qty || !formData.entryPrice || !formData.entryDate) ? T.textMuted : T.pageBg, border: 'none', padding: '1rem', borderRadius: '4px', cursor: (!formData.symbol || !formData.qty || !formData.entryPrice || !formData.entryDate) ? 'not-allowed' : 'pointer', fontWeight: '600', marginTop: '1rem' }}>ADD TRADE</button>
                             </div>
@@ -6116,7 +6131,7 @@ export default function PortfolioTracker() {
                                             );
                                         })()}
                                     </div>
-                                    <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); setScreenshotUrls([]); setPendingBlobs([]); setIsPasteActive(false); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
+                                    <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); setScreenshotUrls([]); setPendingBlobs([]); setIsPasteActive(false); setNotesTab('notes'); }} style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><X size={24} /></button>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.65fr', gap: '1rem' }}>
@@ -6195,12 +6210,24 @@ export default function PortfolioTracker() {
                                         <div><label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Fees</label>
                                         <input type="number" step="0.01" value={formData.fees} onChange={(e) => setFormData({...formData, fees: e.target.value})} style={{ width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary }} /></div>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '1rem' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <label style={{ display: 'block', marginBottom: '0.5rem', color: T.textSecondary, fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: '600' }}>Notes</label>
-                                            <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ flex: 1, minHeight: '108px', width: '100%', padding: '0.75rem', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '4px', color: T.textPrimary, fontFamily: 'inherit', resize: 'none' }} />
+                                    <div>
+                                        <div style={{ display: 'flex', borderRadius: '4px 4px 0 0', overflow: 'hidden', border: `1px solid ${T.borderMid}`, borderBottom: 'none' }}>
+                                            {[['notes', 'Notes'], ['screenshots', 'Screenshots']].map(([id, lbl]) => {
+                                                const count = screenshotUrls.length + pendingBlobs.length;
+                                                return (
+                                                    <button key={id} onClick={() => setNotesTab(id)} style={{ flex: 1, padding: '0.45rem 0.75rem', background: notesTab === id ? T.panelBg : T.raisedBg, border: 'none', borderRight: id === 'notes' ? `1px solid ${T.borderMid}` : 'none', color: notesTab === id ? T.textPrimary : T.textMuted, fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: notesTab === id ? '700' : '500', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
+                                                        {lbl}{id === 'screenshots' && count > 0 && <span style={{ marginLeft: '0.35rem', fontSize: '0.65rem', background: 'rgba(56,189,248,0.15)', color: T.blue, border: '1px solid rgba(56,189,248,0.3)', borderRadius: '10px', padding: '0 0.35rem', fontWeight: '800' }}>{count}</span>}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                        <ScreenshotSection fileInputRef={screenshotFileEditRef} />
+                                        <div style={{ border: `1px solid ${T.borderMid}`, borderRadius: '0 0 4px 4px', background: T.panelBg, minHeight: '138px', padding: '0.75rem' }}>
+                                            {notesTab === 'notes' ? (
+                                                <textarea placeholder="Trade notes..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} style={{ width: '100%', minHeight: '108px', background: 'transparent', border: 'none', outline: 'none', color: T.textPrimary, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'none', padding: 0, lineHeight: '1.6', boxSizing: 'border-box' }} />
+                                            ) : (
+                                                <ScreenshotSection fileInputRef={screenshotFileEditRef} />
+                                            )}
+                                        </div>
                                     </div>
                                     
                                     {editingTrade && ((editingTrade.partialExits || []).length > 0 || (editingTrade.partialAdds || []).length > 0 || (editingTrade.dividendEntries || []).length > 0) && (() => {
