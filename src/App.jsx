@@ -4731,6 +4731,17 @@ export default function PortfolioTracker() {
                                                         </div>
                                                     </Card>
 
+                                                    <Card tip="The stock you have traded the most times">
+                                                        <Label>Most Traded</Label>
+                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: mostTradedSymbol ? T.textPrimary : T.textMuted }}>{mostTradedSymbol || '—'}</div>
+                                                        {mostTradedCount && <div style={{ fontSize: '0.72rem', color: T.textMuted, marginTop: '0.25rem' }}>{mostTradedCount} trades</div>}
+                                                    </Card>
+
+                                                </div>
+
+                                                {/* ── Row 2: Risk & returns ── */}
+                                                <div style={rowStyle}>
+
                                                     <Card tip="Total gross profit ÷ total gross loss. Above 1.5 is solid; below 1.0 means you're losing money overall">
                                                         <Label>Profit Factor</Label>
                                                         <div style={{ fontSize: '1.6rem', fontWeight: '700', color: profitFactor === null ? T.textMuted : profitFactor >= 1.5 ? T.green : profitFactor >= 1 ? T.amber : T.red }}>
@@ -4738,11 +4749,6 @@ export default function PortfolioTracker() {
                                                         </div>
                                                         {profitFactor !== null && <div style={{ fontSize: '0.72rem', color: T.textMuted, marginTop: '0.25rem' }}>{profitFactor >= 1.5 ? 'Strong' : profitFactor >= 1 ? 'Marginal' : 'Unprofitable'}</div>}
                                                     </Card>
-
-                                                </div>
-
-                                                {/* ── Row 2: Risk & returns ── */}
-                                                <div style={rowStyle}>
 
                                                     <Card tip="Average winning trade ÷ average losing trade">
                                                         <Label>P/L Ratio</Label>
@@ -4782,17 +4788,9 @@ export default function PortfolioTracker() {
                                                         ) : <div style={{ fontSize: '1.6rem', fontWeight: '700', color: T.textMuted }}>—</div>}
                                                     </Card>
 
-                                                    <Card tip="The stock you have traded the most times">
-                                                        <Label>Most Traded</Label>
-                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: mostTradedSymbol ? T.textPrimary : T.textMuted }}>{mostTradedSymbol || '—'}</div>
-                                                        {mostTradedCount && <div style={{ fontSize: '0.72rem', color: T.textMuted, marginTop: '0.25rem' }}>{mostTradedCount} trades</div>}
-                                                    </Card>
-
-                                                    <Card tip="Average number of closed trades per month across your trading history">
-                                                        <Label>Avg Trades/Month</Label>
-                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: avgTradesPerMonth !== null ? T.blue : T.textMuted }}>
-                                                            {avgTradesPerMonth !== null ? avgTradesPerMonth.toFixed(1) : '—'}
-                                                        </div>
+                                                    <Card tip="Average dollar value of all positions at entry">
+                                                        <Label>Avg Position Size</Label>
+                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: T.textPrimary }}>{avgPositionSize > 0 ? fmtSize(avgPositionSize) : '—'}</div>
                                                     </Card>
 
                                                 </div>
@@ -4823,9 +4821,11 @@ export default function PortfolioTracker() {
                                                         )}
                                                     </Card>
 
-                                                    <Card tip="Average dollar value of all positions at entry">
-                                                        <Label>Avg Position Size</Label>
-                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: T.textPrimary }}>{avgPositionSize > 0 ? fmtSize(avgPositionSize) : '—'}</div>
+                                                    <Card tip="Average number of closed trades per month across your trading history">
+                                                        <Label>Avg Trades/Month</Label>
+                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: avgTradesPerMonth !== null ? T.blue : T.textMuted }}>
+                                                            {avgTradesPerMonth !== null ? avgTradesPerMonth.toFixed(1) : '—'}
+                                                        </div>
                                                     </Card>
 
                                                     <Card tip={longestHoldTrade ? `${longestHoldTrade.symbol} — held from ${longestHoldTrade.entryDate} to ${longestHoldTrade.exitDate}` : 'Longest time between entry and exit'}>
@@ -5555,7 +5555,7 @@ export default function PortfolioTracker() {
                     const abs = Math.abs(v);
                     let num;
                     if (abs >= 1000000) num = (abs/1000000).toFixed(1) + 'M';
-                    else if (abs >= 1000) num = '$' + (abs/1000).toFixed(2) + 'k';
+                    else if (abs >= 10000) num = '$' + (abs/1000).toFixed(2) + 'k';
                     else num = '$' + abs.toFixed(2);
                     if (abs >= 1000000) num = '$' + num;
                     return (v >= 0 ? '+' : '-') + num;
