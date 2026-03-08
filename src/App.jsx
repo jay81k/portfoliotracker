@@ -1549,13 +1549,24 @@ export default function PortfolioTracker() {
                 const cadDepositsDenom = (activeBalances.depositsCad || []).reduce((s, d) => s + (parseFloat(d.amt) || 0), 0);
                 const usdBal = parseFloat(activeBalances.usd) + (activeBalances.mode === 'current' ? usdDepositsDenom : 0);
                 const cadBal = parseFloat(activeBalances.cad) + (activeBalances.mode === 'current' ? cadDepositsDenom : 0);
+                const cutoff = getTimeframeCutoff(chartTimeframe, customStartDate);
                 const usdTrades = dashboardFilteredTrades.filter(t => !isCAD(t.symbol));
                 const cadTrades = dashboardFilteredTrades.filter(t => isCAD(t.symbol));
                 const calcReturn = (tradeList) => tradeList.reduce((sum, t) => {
-                    const capitalGains = t.exitDate ? getTotalProfit(t) : ((t.partialExits && t.partialExits.length > 0) ? t.partialExits.reduce((s, pe) => s + (pe.profit || 0), 0) : 0);
+                    // Capital gains — closed trades only, already filtered by exit date
+                    const capitalGains = t.exitDate
+                        ? getTotalProfit(t)
+                        : (t.partialExits && t.partialExits.length > 0)
+                            ? t.partialExits
+                                .filter(pe => !cutoff || new Date(pe.exitDate) >= cutoff)
+                                .reduce((s, pe) => s + (pe.profit || 0), 0)
+                            : 0;
+                    // Dividends — filter by date if cutoff active
                     const dividends = t.dividendEntries && t.dividendEntries.length > 0
-                        ? t.dividendEntries.reduce((s, e) => s + e.amount, 0)
-                        : (t.dividend || 0);
+                        ? t.dividendEntries
+                            .filter(e => !cutoff || new Date(e.date) >= cutoff)
+                            .reduce((s, e) => s + e.amount, 0)
+                        : (!cutoff ? (t.dividend || 0) : 0);
                     return sum + capitalGains + dividends;
                 }, 0);
                 const usdProfit = calcReturn(usdTrades);
