@@ -2864,7 +2864,12 @@ export default function PortfolioTracker() {
                                             const usdColor = currencyReturns.usd !== null ? (currencyReturns.usd >= 0 ? T.green : T.red) : T.textFaint;
                                             const cadColor = currencyReturns.cad !== null ? (currencyReturns.cad >= 0 ? T.green : T.red) : T.textFaint;
                                             const totalIncentives = (portfolioViewMode === 'selected' && startingBalances.showIncentives && startingBalances.incentives)
-                                                ? startingBalances.incentives.reduce((s, i) => s + (parseFloat(i.amt) || 0), 0) : 0;
+                                                ? startingBalances.incentives.reduce((s, i) => {
+                                                    const cutoff = getTimeframeCutoff(chartTimeframe, customStartDate);
+                                                    if (cutoff && !i.date) return s; // no date — exclude under active timeframe
+                                                    if (cutoff && i.date && new Date(i.date) < cutoff) return s; // outside timeframe
+                                                    return s + (parseFloat(i.amt) || 0);
+                                                }, 0) : 0;
                                             const displayProfit = metrics.totalProfit + totalIncentives;
                                             return (
                                                 <div ref={balanceEditorRef} style={{ background: T.panelBg, borderRadius: '8px', padding: '1.5rem', border: `1px solid ${T.border}`, position: 'relative' }}
@@ -3222,7 +3227,7 @@ export default function PortfolioTracker() {
                                                                         </div>
                                                                         <button onClick={() => {
                                                                             if (!balanceDraft.newIncentiveAmt || parseFloat(balanceDraft.newIncentiveAmt) <= 0) return;
-                                                                            setBalanceDraft(d => ({ ...d, incentives: [...(d.incentives || []), { desc: d.newIncentiveDesc, amt: d.newIncentiveAmt }], newIncentiveDesc: '', newIncentiveAmt: '' }));
+                                                                            setBalanceDraft(d => ({ ...d, incentives: [...(d.incentives || []), { desc: d.newIncentiveDesc, amt: d.newIncentiveAmt, date: new Date().toISOString().split('T')[0] }], newIncentiveDesc: '', newIncentiveAmt: '' }));
                                                                         }} style={{ width: '100%', background: '#ffaa00', color: '#000', border: 'none', borderRadius: '5px', padding: '0.4rem', fontWeight: '700', fontSize: '0.68rem', letterSpacing: '0.05em', cursor: 'pointer', textTransform: 'uppercase', marginBottom: '0.25rem' }}>+ Add</button>
                                                                     </>
                                                                 );
