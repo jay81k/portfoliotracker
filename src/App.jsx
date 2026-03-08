@@ -1800,7 +1800,13 @@ export default function PortfolioTracker() {
             };
 
             const sortTrades = (tradesToSort) => {
-                if (!sortColumn) return tradesToSort;
+                if (!sortColumn) {
+                    return [...tradesToSort].sort((a, b) => {
+                        const aDate = a.entryDate ? new Date(a.entryDate) : new Date(0);
+                        const bDate = b.entryDate ? new Date(b.entryDate) : new Date(0);
+                        return bDate - aDate; // most recent first
+                    });
+                }
                 
                 return [...tradesToSort].sort((a, b) => {
                     let aVal, bVal;
