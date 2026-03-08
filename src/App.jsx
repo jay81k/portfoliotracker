@@ -1478,10 +1478,7 @@ export default function PortfolioTracker() {
                     const endDate = new Date(customEnd);
                     return tradesList.filter(t => {
                         if (!t.exitDate) {
-                            // Open trade: include if entered in range OR has a dividend entry in range
-                            const enteredInRange = t.entryDate && new Date(t.entryDate) >= startDate && new Date(t.entryDate) <= endDate;
-                            const hasDivInRange = (t.dividendEntries || []).some(e => { const d = new Date(e.date); return d >= startDate && d <= endDate; });
-                            return enteredInRange || hasDivInRange;
+                            return t.entryDate && new Date(t.entryDate) >= startDate && new Date(t.entryDate) <= endDate;
                         }
                         return new Date(t.exitDate) >= startDate && new Date(t.exitDate) <= endDate;
                     });
@@ -1501,10 +1498,9 @@ export default function PortfolioTracker() {
                 }
                 return tradesList.filter(t => {
                     if (!t.exitDate) {
-                        // Open trade: include if entered within timeframe OR has a dividend entry within timeframe
-                        const enteredInWindow = t.entryDate && new Date(t.entryDate) >= cutoff;
-                        const hasDivInWindow = (t.dividendEntries || []).some(e => new Date(e.date) >= cutoff);
-                        return enteredInWindow || hasDivInWindow;
+                        // Open trade: include if entered within timeframe
+                        // Dividend entries are filtered inside calculateMetrics — don't use them to pull in old open trades
+                        return t.entryDate && new Date(t.entryDate) >= cutoff;
                     }
                     return new Date(t.exitDate) >= cutoff;
                 });
