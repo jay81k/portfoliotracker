@@ -1427,6 +1427,8 @@ export default function PortfolioTracker() {
                 const avgLoss = totalLosses > 0 ? losingTrades.reduce((sum, t) => sum + getTotalProfit(t), 0) / totalLosses : 0;
                 let unrealizedPL = 0;
                 openTrades.forEach(trade => {
+                    // Only count unrealized P&L for trades entered within the timeframe
+                    if (cutoffDate && trade.entryDate && new Date(trade.entryDate) < cutoffDate) return;
                     const currentPrice = manualPrices[trade.symbol] || currentPrices[trade.symbol] || trade.entryPrice;
                     const pl = (trade.direction === 'short'
                         ? (trade.entryPrice - currentPrice)
@@ -1463,7 +1465,7 @@ export default function PortfolioTracker() {
                     avgWin,
                     avgLoss,
                     totalTrades: closedTrades.length, 
-                    openPositions: openTrades.length, 
+                    openPositions: openTrades.filter(t => !cutoffDate || !t.entryDate || new Date(t.entryDate) >= cutoffDate).length, 
                     wins: totalWins, 
                     losses: totalLosses,
                     evens: totalEvens,
@@ -1478,7 +1480,9 @@ export default function PortfolioTracker() {
                     const endDate = new Date(customEnd);
                     return tradesList.filter(t => {
                         if (!t.exitDate) {
-                            return t.entryDate && new Date(t.entryDate) >= startDate && new Date(t.entryDate) <= endDate;
+                            const enteredInRange = t.entryDate && new Date(t.entryDate) >= startDate && new Date(t.entryDate) <= endDate;
+                            const hasDivInRange = (t.dividendEntries || []).some(e => { const d = new Date(e.date); return d >= startDate && d <= endDate; });
+                            return enteredInRange || hasDivInRange;
                         }
                         return new Date(t.exitDate) >= startDate && new Date(t.exitDate) <= endDate;
                     });
@@ -1498,9 +1502,9 @@ export default function PortfolioTracker() {
                 }
                 return tradesList.filter(t => {
                     if (!t.exitDate) {
-                        // Open trade: include if entered within timeframe
-                        // Dividend entries are filtered inside calculateMetrics — don't use them to pull in old open trades
-                        return t.entryDate && new Date(t.entryDate) >= cutoff;
+                        const enteredInWindow = t.entryDate && new Date(t.entryDate) >= cutoff;
+                        const hasDivInWindow = (t.dividendEntries || []).some(e => new Date(e.date) >= cutoff);
+                        return enteredInWindow || hasDivInWindow;
                     }
                     return new Date(t.exitDate) >= cutoff;
                 });
