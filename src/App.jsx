@@ -4661,11 +4661,37 @@ export default function PortfolioTracker() {
                                         const expColor = expectancy === null ? T.textMuted : expectancy >= 0 ? T.green : T.red;
                                         const best  = totalWins   > 0 ? winningTrades.reduce((a, t) => getEffectiveProfit(t) > getEffectiveProfit(a) ? t : a) : null;
                                         const worst = totalLosses > 0 ? losingTrades.reduce((a, t)  => getEffectiveProfit(t) < getEffectiveProfit(a) ? t : a) : null;
-                                        const rowStyle = { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1rem', marginBottom: '1rem' };
+
+                                        // Largest % Win & Loss
+                                        const largestPctWin = winningTrades.length > 0 ? winningTrades.reduce((a, t) => {
+                                            const pct = t.entryPrice > 0 ? (getEffectiveProfit(t) / (t.entryPrice * (t.originalQty || t.qty))) * 100 : 0;
+                                            const aPct = a.entryPrice > 0 ? (getEffectiveProfit(a) / (a.entryPrice * (a.originalQty || a.qty))) * 100 : 0;
+                                            return pct > aPct ? t : a;
+                                        }) : null;
+                                        const largestPctWinVal = largestPctWin && largestPctWin.entryPrice > 0 ? (getEffectiveProfit(largestPctWin) / (largestPctWin.entryPrice * (largestPctWin.originalQty || largestPctWin.qty))) * 100 : null;
+                                        const largestPctLoss = losingTrades.length > 0 ? losingTrades.reduce((a, t) => {
+                                            const pct = t.entryPrice > 0 ? (getEffectiveProfit(t) / (t.entryPrice * (t.originalQty || t.qty))) * 100 : 0;
+                                            const aPct = a.entryPrice > 0 ? (getEffectiveProfit(a) / (a.entryPrice * (a.originalQty || a.qty))) * 100 : 0;
+                                            return pct < aPct ? t : a;
+                                        }) : null;
+                                        const largestPctLossVal = largestPctLoss && largestPctLoss.entryPrice > 0 ? (getEffectiveProfit(largestPctLoss) / (largestPctLoss.entryPrice * (largestPctLoss.originalQty || largestPctLoss.qty))) * 100 : null;
+
+                                        // Most traded stock
+                                        const tradeCountBySymbol = {};
+                                        statsTrades.forEach(t => { tradeCountBySymbol[t.symbol] = (tradeCountBySymbol[t.symbol] || 0) + 1; });
+                                        const mostTradedSymbol = Object.keys(tradeCountBySymbol).length > 0 ? Object.keys(tradeCountBySymbol).reduce((a, b) => tradeCountBySymbol[a] > tradeCountBySymbol[b] ? a : b) : null;
+                                        const mostTradedCount = mostTradedSymbol ? tradeCountBySymbol[mostTradedSymbol] : null;
+
+                                        // Avg trades per month
+                                        const tradeMonths = closedTrades.filter(t => t.exitDate).map(t => t.exitDate.substring(0, 7));
+                                        const uniqueMonths = [...new Set(tradeMonths)].length;
+                                        const avgTradesPerMonth = uniqueMonths > 0 ? (closedTrades.length / uniqueMonths) : null;
+
+                                        const rowStyle = { display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '1rem', marginBottom: '1rem' };
                                         return (
                                             <div style={{ marginBottom: '2rem' }}>
 
-                                                {/* ── Row 1: Core performance ── */}
+                                                {/* ── Row 1: Trade outcomes ── */}
                                                 <div style={rowStyle}>
 
                                                     <Card tip="Your single most profitable closed trade" style={{ overflow: 'hidden' }}>
@@ -4682,6 +4708,22 @@ export default function PortfolioTracker() {
                                                         <span style={{ position: 'absolute', bottom: '10px', right: '12px', fontSize: '1rem', opacity: 0.7, lineHeight: 1, userSelect: 'none', pointerEvents: 'none' }}>🩸</span>
                                                     </Card>
 
+                                                    <Card tip="Your highest % return on a single trade relative to position size">
+                                                        <Label>Largest % Win</Label>
+                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: largestPctWinVal !== null ? T.green : T.textMuted }}>
+                                                            {largestPctWinVal !== null ? '+' + largestPctWinVal.toFixed(1) + '%' : '—'}
+                                                        </div>
+                                                        {largestPctWin && <div style={{ fontSize: '0.82rem', fontWeight: '500', color: T.textSecondary, marginTop: '0.3rem', letterSpacing: '0.02em' }}>{largestPctWin.symbol}</div>}
+                                                    </Card>
+
+                                                    <Card tip="Your biggest % loss on a single trade relative to position size">
+                                                        <Label>Largest % Loss</Label>
+                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: largestPctLossVal !== null ? T.red : T.textMuted }}>
+                                                            {largestPctLossVal !== null ? largestPctLossVal.toFixed(1) + '%' : '—'}
+                                                        </div>
+                                                        {largestPctLoss && <div style={{ fontSize: '0.82rem', fontWeight: '500', color: T.textSecondary, marginTop: '0.3rem', letterSpacing: '0.02em' }}>{largestPctLoss.symbol}</div>}
+                                                    </Card>
+
                                                     <Card tip="Expected average profit per trade based on your win rate and avg win/loss sizes">
                                                         <Label>Expectancy</Label>
                                                         <div style={{ fontSize: '1.6rem', fontWeight: '700', color: expColor }}>
@@ -4696,6 +4738,11 @@ export default function PortfolioTracker() {
                                                         </div>
                                                         {profitFactor !== null && <div style={{ fontSize: '0.72rem', color: T.textMuted, marginTop: '0.25rem' }}>{profitFactor >= 1.5 ? 'Strong' : profitFactor >= 1 ? 'Marginal' : 'Unprofitable'}</div>}
                                                     </Card>
+
+                                                </div>
+
+                                                {/* ── Row 2: Risk & returns ── */}
+                                                <div style={rowStyle}>
 
                                                     <Card tip="Average winning trade ÷ average losing trade">
                                                         <Label>P/L Ratio</Label>
@@ -4724,9 +4771,33 @@ export default function PortfolioTracker() {
                                                         )}
                                                     </Card>
 
+                                                    <Card tip="Compound annual growth rate — how much your portfolio grows per year if the pace continues">
+                                                        <Label>CAGR</Label>
+                                                        {hasCagr ? (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                                                                {usdCagr !== null && <div style={{ fontSize: '1.6rem', fontWeight: '700', color: usdCagr >= 0 ? T.green : T.red, lineHeight: 1.1 }}>{usdCagr >= 0 ? '+' : ''}{usdCagr.toFixed(2)}%</div>}
+                                                                {cadCagr !== null && usdCagr !== null && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.78rem', fontWeight: '500', color: cadCagr >= 0 ? T.green : T.red }}>CAD {cadCagr >= 0 ? '+' : ''}{cadCagr.toFixed(2)}%</div>}
+                                                                {cadCagr !== null && usdCagr === null && <div style={{ fontSize: '1.6rem', fontWeight: '700', color: cadCagr >= 0 ? T.green : T.red, lineHeight: 1.1 }}>{cadCagr >= 0 ? '+' : ''}{cadCagr.toFixed(2)}%</div>}
+                                                            </div>
+                                                        ) : <div style={{ fontSize: '1.6rem', fontWeight: '700', color: T.textMuted }}>—</div>}
+                                                    </Card>
+
+                                                    <Card tip="The stock you have traded the most times">
+                                                        <Label>Most Traded</Label>
+                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: mostTradedSymbol ? T.textPrimary : T.textMuted }}>{mostTradedSymbol || '—'}</div>
+                                                        {mostTradedCount && <div style={{ fontSize: '0.72rem', color: T.textMuted, marginTop: '0.25rem' }}>{mostTradedCount} trades</div>}
+                                                    </Card>
+
+                                                    <Card tip="Average number of closed trades per month across your trading history">
+                                                        <Label>Avg Trades/Month</Label>
+                                                        <div style={{ fontSize: '1.6rem', fontWeight: '700', color: avgTradesPerMonth !== null ? T.blue : T.textMuted }}>
+                                                            {avgTradesPerMonth !== null ? avgTradesPerMonth.toFixed(1) : '—'}
+                                                        </div>
+                                                    </Card>
+
                                                 </div>
 
-                                                {/* ── Row 2: Behavioral & context ── */}
+                                                {/* ── Row 3: Behavioral & time ── */}
                                                 <div style={rowStyle}>
 
                                                     <Card tip="Longest winning streak without a loss">
@@ -4761,17 +4832,6 @@ export default function PortfolioTracker() {
                                                         <Label>Longest Hold</Label>
                                                         <div style={{ fontSize: '1.6rem', fontWeight: '700', color: T.blue }}>{longestHold !== null ? longestHold + 'd' : '—'}</div>
                                                         {longestHoldTrade && <div style={{ fontSize: '0.82rem', fontWeight: '500', color: T.textSecondary, marginTop: '0.3rem', letterSpacing: '0.02em' }}>{longestHoldTrade.symbol}</div>}
-                                                    </Card>
-
-                                                    <Card tip="Compound annual growth rate — how much your portfolio grows per year if the pace continues">
-                                                        <Label>CAGR</Label>
-                                                        {hasCagr ? (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                                                                {usdCagr !== null && <div style={{ fontSize: '1.6rem', fontWeight: '700', color: usdCagr >= 0 ? T.green : T.red, lineHeight: 1.1 }}>{usdCagr >= 0 ? '+' : ''}{usdCagr.toFixed(2)}%</div>}
-                                                                {cadCagr !== null && usdCagr !== null && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.78rem', fontWeight: '500', color: cadCagr >= 0 ? T.green : T.red }}>CAD {cadCagr >= 0 ? '+' : ''}{cadCagr.toFixed(2)}%</div>}
-                                                                {cadCagr !== null && usdCagr === null && <div style={{ fontSize: '1.6rem', fontWeight: '700', color: cadCagr >= 0 ? T.green : T.red, lineHeight: 1.1 }}>{cadCagr >= 0 ? '+' : ''}{cadCagr.toFixed(2)}%</div>}
-                                                            </div>
-                                                        ) : <div style={{ fontSize: '1.6rem', fontWeight: '700', color: T.textMuted }}>—</div>}
                                                     </Card>
 
                                                 </div>
