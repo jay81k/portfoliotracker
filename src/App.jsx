@@ -1400,7 +1400,9 @@ export default function PortfolioTracker() {
                             .filter(e => !cutoffDate || new Date(e.date) >= cutoffDate)
                             .reduce((s, e) => s + e.amount, 0);
                     }
-                    return sum + (t.dividend || 0);
+                    // Lump-sum dividend with no dated entries — only include when no timeframe filter is active
+                    if (!cutoffDate) return sum + (t.dividend || 0);
+                    return sum;
                 }, 0);
                 
                 // Total profit = capital gains + dividends
@@ -1471,17 +1473,20 @@ export default function PortfolioTracker() {
             };
 
             const filterTradesByTimeframe = (tradesList, tf, customStart, customEnd) => {
-                // Custom date range takes precedence
                 if (tf === 'CUSTOM' && customStart && customEnd) {
                     const startDate = new Date(customStart);
                     const endDate = new Date(customEnd);
                     return tradesList.filter(t => {
-                        if (!t.exitDate) return true; // Always include open positions
-                        const exitTradeDate = new Date(t.exitDate);
-                        return exitTradeDate >= startDate && exitTradeDate <= endDate;
+                        if (!t.exitDate) {
+                            // Open trade: include if entered in range OR has a dividend entry in range
+                            const enteredInRange = t.entryDate && new Date(t.entryDate) >= startDate && new Date(t.entryDate) <= endDate;
+                            const hasDivInRange = (t.dividendEntries || []).some(e => { const d = new Date(e.date); return d >= startDate && d <= endDate; });
+                            return enteredInRange || hasDivInRange;
+                        }
+                        return new Date(t.exitDate) >= startDate && new Date(t.exitDate) <= endDate;
                     });
                 }
-                
+
                 if (tf === 'ALL') return tradesList;
                 const now = new Date(); const cutoff = new Date();
                 switch (tf) {
@@ -1494,7 +1499,15 @@ export default function PortfolioTracker() {
                     case 'YTD': cutoff.setMonth(0); cutoff.setDate(1); break;
                     default: return tradesList;
                 }
-                return tradesList.filter(t => !t.exitDate || new Date(t.exitDate) >= cutoff);
+                return tradesList.filter(t => {
+                    if (!t.exitDate) {
+                        // Open trade: include if entered within timeframe OR has a dividend entry within timeframe
+                        const enteredInWindow = t.entryDate && new Date(t.entryDate) >= cutoff;
+                        const hasDivInWindow = (t.dividendEntries || []).some(e => new Date(e.date) >= cutoff);
+                        return enteredInWindow || hasDivInWindow;
+                    }
+                    return new Date(t.exitDate) >= cutoff;
+                });
             };
 
             // For dashboard: use chartTimeframe (and custom dates if applicable)
