@@ -609,19 +609,10 @@ export default function PortfolioTracker() {
                         const result = data?.chart?.result?.[0];
                         const currentPrice = result?.meta?.regularMarketPrice;
                         
-                        // Get previous close — prefer meta fields, fall back to chart data
-                        let previousClose = result?.meta?.previousClose || result?.meta?.chartPreviousClose || null;
-                        if (!previousClose) {
-                            const closes = result?.indicators?.quote?.[0]?.close;
-                            if (closes && closes.length > 1) {
-                                for (let i = closes.length - 2; i >= 0; i--) {
-                                    if (closes[i] !== null && closes[i] !== undefined) {
-                                        previousClose = closes[i];
-                                        break;
-                                    }
-                                }
-                            }
-                        }
+                        // Use Yahoo's authoritative previousClose from meta only.
+                        // The candle-based fallback (closes[length-2]) is unreliable on weekends
+                        // as it picks the wrong trading day depending on range/interval.
+                        const previousClose = result?.meta?.previousClose || result?.meta?.chartPreviousClose || null;
                         
                         if (currentPrice && currentPrice > 0) {
                             return { currentPrice, previousClose };
