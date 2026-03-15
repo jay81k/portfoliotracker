@@ -624,10 +624,7 @@ export default function PortfolioTracker() {
                         }
                         
                         if (currentPrice && currentPrice > 0) {
-                            // When market is closed, prices aren't moving — set prevClose = currentPrice
-                            // so CHG/DAY% display 0 rather than a stale Thursday→Friday diff
-                            const effectivePrevClose = isMarketOpen() ? previousClose : currentPrice;
-                            return { currentPrice, previousClose: effectivePrevClose };
+                            return { currentPrice, previousClose };
                         }
                     } catch (e) {
                         // silently try next
