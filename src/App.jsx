@@ -578,11 +578,9 @@ export default function PortfolioTracker() {
             useEffect(() => {
                 const openTrades = trades.filter(t => !t.exitDate);
                 if (openTrades.length > 0) {
-                    // Always fetch once to show last known price, even if market is closed
                     fetchCurrentPricesRef.current?.();
-                    // Only poll on interval during market hours
-                    if (!isMarketOpen()) return;
-                    const interval = setInterval(() => fetchCurrentPricesRef.current?.(), 60000);
+                    // During market hours poll every 60s; outside hours retry every 5min in case of transient CORS failures
+                    const interval = setInterval(() => fetchCurrentPricesRef.current?.(), isMarketOpen() ? 60000 : 5 * 60 * 1000);
                     return () => clearInterval(interval);
                 }
             }, [trades]);
@@ -590,15 +588,16 @@ export default function PortfolioTracker() {
             const fetchPriceForSymbol = async (symbol) => {
                 // Clean symbol for Yahoo (e.g. BBD-B.TO stays as-is, Canadian stocks use .TO)
                 const yahooSymbol = symbol;
+                const range = isMarketOpen() ? '5d' : '1d';
 
                 // Strategy 1: Direct Yahoo Finance v8
                 const attempts = [
-                    () => fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`, { headers: { 'Accept': 'application/json' } }),
-                    () => fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`, { headers: { 'Accept': 'application/json' } }),
+                    () => fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`, { headers: { 'Accept': 'application/json' } }),
+                    () => fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`, { headers: { 'Accept': 'application/json' } }),
                     // Strategy 2: allorigins CORS proxy
-                    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`)}`),
+                    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`)}`),
                     // Strategy 3: corsproxy.io
-                    () => fetch(`https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`)}`),
+                    () => fetch(`https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`)}`),
                 ];
 
                 for (const attempt of attempts) {
@@ -728,9 +727,8 @@ export default function PortfolioTracker() {
             React.useEffect(() => {
                 // Always fetch once to show last known prices
                 fetchIndexQuotes();
-                // Only poll on interval during market hours
-                if (!isMarketOpen()) return;
-                const interval = setInterval(fetchIndexQuotes, 5 * 60 * 1000);
+                // During market hours poll every 5min; outside hours retry every 15min for CORS resilience
+                const interval = setInterval(fetchIndexQuotes, isMarketOpen() ? 5 * 60 * 1000 : 15 * 60 * 1000);
                 return () => clearInterval(interval);
             }, []);
 
