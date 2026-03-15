@@ -625,7 +625,10 @@ export default function PortfolioTracker() {
                         }
                         
                         if (currentPrice && currentPrice > 0) {
-                            return { currentPrice, previousClose };
+                            // When market is closed, prices aren't moving — set prevClose = currentPrice
+                            // so CHG/DAY% display 0 rather than a stale Thursday→Friday diff
+                            const effectivePrevClose = isMarketOpen() ? previousClose : currentPrice;
+                            return { currentPrice, previousClose: effectivePrevClose };
                         }
                     } catch (e) {
                         // silently try next
@@ -682,11 +685,6 @@ export default function PortfolioTracker() {
                 
                 setCurrentPrices(newPrices);
                 setPrevClosePrices(newPrevCloses);
-
-                // Persist prevClosePrices so they survive page reloads and portfolio switches
-                if (Object.keys(newPrevCloses).length > 0) {
-                    await window.storage.set('portfolio_prev_close_prices', JSON.stringify(newPrevCloses));
-                }
 
                 // Save updated trades if any names were added
                 if (namesUpdated) {
@@ -797,12 +795,6 @@ export default function PortfolioTracker() {
                     } catch (e) { console.error('Failed to parse opening prices:', e); }
                 }
 
-                // Restore persisted prev-close prices so CHG/DAY% are correct before next fetch
-                const storedPrevClose = await window.storage.get('portfolio_prev_close_prices');
-                if (storedPrevClose?.value) {
-                    try { setPrevClosePrices(JSON.parse(storedPrevClose.value)); }
-                    catch (e) { console.error('Failed to parse prev close prices:', e); }
-                }
                 
                 setIsLoading(false);
             };
