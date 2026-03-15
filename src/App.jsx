@@ -550,6 +550,20 @@ export default function PortfolioTracker() {
 
 
 
+            // Returns true if US markets are currently open (Mon–Fri, 9:30–16:00 ET)
+            const isMarketOpen = () => {
+                // Get current time in US Eastern (handles EST/EDT automatically)
+                const now = new Date();
+                const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+                const et = new Date(etStr);
+                const day = et.getDay(); // 0=Sun, 6=Sat
+                if (day === 0 || day === 6) return false;
+                const hours = et.getHours();
+                const minutes = et.getMinutes();
+                const timeInMinutes = hours * 60 + minutes;
+                return timeInMinutes >= 9 * 60 + 30 && timeInMinutes < 16 * 60;
+            };
+
             // Always point to the latest fetchCurrentPrices so the interval is never stale
             const fetchCurrentPricesRef = useRef(null);
             useEffect(() => { fetchCurrentPricesRef.current = fetchCurrentPrices; });
@@ -564,8 +578,10 @@ export default function PortfolioTracker() {
             useEffect(() => {
                 const openTrades = trades.filter(t => !t.exitDate);
                 if (openTrades.length > 0) {
-                    fetchCurrentPricesRef.current?.();
-                    const interval = setInterval(() => fetchCurrentPricesRef.current?.(), 60000);
+                    if (isMarketOpen()) fetchCurrentPricesRef.current?.();
+                    const interval = setInterval(() => {
+                        if (isMarketOpen()) fetchCurrentPricesRef.current?.();
+                    }, 60000);
                     return () => clearInterval(interval);
                 }
             }, [trades]);
@@ -719,8 +735,10 @@ export default function PortfolioTracker() {
             };
 
             React.useEffect(() => {
-                fetchIndexQuotes();
-                const interval = setInterval(fetchIndexQuotes, 5 * 60 * 1000);
+                if (isMarketOpen()) fetchIndexQuotes();
+                const interval = setInterval(() => {
+                    if (isMarketOpen()) fetchIndexQuotes();
+                }, 5 * 60 * 1000);
                 return () => clearInterval(interval);
             }, []);
 
