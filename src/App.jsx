@@ -721,7 +721,7 @@ export default function PortfolioTracker() {
                         } catch (e) { /* try next */ }
                     }
                 }));
-                if (Object.keys(results).length > 0) setIndexQuotes(results);
+                if (Object.keys(results).length > 0) setIndexQuotes(prev => ({ ...prev, ...results }));
             };
 
             React.useEffect(() => {
