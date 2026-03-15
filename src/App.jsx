@@ -578,10 +578,11 @@ export default function PortfolioTracker() {
             useEffect(() => {
                 const openTrades = trades.filter(t => !t.exitDate);
                 if (openTrades.length > 0) {
-                    if (isMarketOpen()) fetchCurrentPricesRef.current?.();
-                    const interval = setInterval(() => {
-                        if (isMarketOpen()) fetchCurrentPricesRef.current?.();
-                    }, 60000);
+                    // Always fetch once to show last known price, even if market is closed
+                    fetchCurrentPricesRef.current?.();
+                    // Only poll on interval during market hours
+                    if (!isMarketOpen()) return;
+                    const interval = setInterval(() => fetchCurrentPricesRef.current?.(), 60000);
                     return () => clearInterval(interval);
                 }
             }, [trades]);
@@ -735,10 +736,11 @@ export default function PortfolioTracker() {
             };
 
             React.useEffect(() => {
-                if (isMarketOpen()) fetchIndexQuotes();
-                const interval = setInterval(() => {
-                    if (isMarketOpen()) fetchIndexQuotes();
-                }, 5 * 60 * 1000);
+                // Always fetch once to show last known prices
+                fetchIndexQuotes();
+                // Only poll on interval during market hours
+                if (!isMarketOpen()) return;
+                const interval = setInterval(fetchIndexQuotes, 5 * 60 * 1000);
                 return () => clearInterval(interval);
             }, []);
 
