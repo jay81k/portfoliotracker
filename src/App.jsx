@@ -609,17 +609,16 @@ export default function PortfolioTracker() {
                         const result = data?.chart?.result?.[0];
                         const currentPrice = result?.meta?.regularMarketPrice;
                         
-                        // Get previous close from actual chart data
-                        let previousClose = null;
-                        const timestamps = result?.timestamp;
-                        const closes = result?.indicators?.quote?.[0]?.close;
-                        
-                        if (timestamps && closes && closes.length > 1) {
-                            // Get the last non-null close before the most recent one
-                            for (let i = closes.length - 2; i >= 0; i--) {
-                                if (closes[i] !== null && closes[i] !== undefined) {
-                                    previousClose = closes[i];
-                                    break;
+                        // Get previous close — prefer meta fields, fall back to chart data
+                        let previousClose = result?.meta?.previousClose || result?.meta?.chartPreviousClose || null;
+                        if (!previousClose) {
+                            const closes = result?.indicators?.quote?.[0]?.close;
+                            if (closes && closes.length > 1) {
+                                for (let i = closes.length - 2; i >= 0; i--) {
+                                    if (closes[i] !== null && closes[i] !== undefined) {
+                                        previousClose = closes[i];
+                                        break;
+                                    }
                                 }
                             }
                         }
