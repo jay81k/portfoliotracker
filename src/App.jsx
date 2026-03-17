@@ -587,19 +587,18 @@ export default function PortfolioTracker() {
 
             const fetchPriceForSymbol = async (symbol) => {
                 const yahooSymbol = symbol;
-                // Always request 2d so we get yesterday's candle for previousClose
+                // Always use 2d so yesterday's candle is available for previousClose
                 const range = '2d';
-
-                // Cache-bust so proxies never serve stale data (appended to proxy URL, not Yahoo URL)
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`;
+                const yahooUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`;
+                // Cache bust appended to proxy URL (not inside encoded Yahoo URL) to avoid double-encoding
                 const cb = Date.now();
-                // Strategy 1: Direct Yahoo Finance v8
+
                 const attempts = [
-                    () => fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`, { headers: { 'Accept': 'application/json' } }),
-                    () => fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`, { headers: { 'Accept': 'application/json' } }),
-                    // Strategy 2: allorigins CORS proxy (cache-busted)
-                    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`)}&_=${cb}`),
-                    // Strategy 3: corsproxy.io (cache-busted)
-                    () => fetch(`https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`)}&_=${cb}`),
+                    () => fetch(yahooUrl, { headers: { 'Accept': 'application/json' } }),
+                    () => fetch(yahooUrl2, { headers: { 'Accept': 'application/json' } }),
+                    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}&_=${cb}`),
+                    () => fetch(`https://corsproxy.io/?${encodeURIComponent(yahooUrl)}&_=${cb}`),
                 ];
 
                 for (const attempt of attempts) {
@@ -610,9 +609,8 @@ export default function PortfolioTracker() {
                         const result = data?.chart?.result?.[0];
                         const currentPrice = result?.meta?.regularMarketPrice;
 
-                        // Prefer meta.previousClose, but Yahoo often omits it when going through
-                        // proxies. Fall back to the first valid close in the candle data (range=2d
-                        // gives us yesterday's candle as closes[0]).
+                        // meta.previousClose is often missing through proxies.
+                        // Fall back to closes[0] from the 2d candle which is yesterday's confirmed close.
                         const metaPrevClose = result?.meta?.previousClose;
                         const closes = result?.indicators?.quote?.[0]?.close || [];
                         const candlePrevClose = closes.find(c => c != null) || null;
@@ -650,8 +648,7 @@ export default function PortfolioTracker() {
                         newPrices[symbol] = currentPrices[symbol];
                     }
                     // Do NOT seed prevClose from stale state — always use freshly fetched value.
-                    // Seeding caused CHG/DAY% to be calculated against an old previousClose
-                    // when the fetch succeeded for currentPrice but returned null for previousClose.
+                    // Seeding caused CHG/DAY% to be calculated against an old previousClose.
                     const priceData = await fetchPriceForSymbol(symbol);
                     if (priceData !== null) {
                         newPrices[symbol] = priceData.currentPrice;
@@ -702,14 +699,14 @@ export default function PortfolioTracker() {
                 const results = {};
                 await Promise.all(INDEX_CONFIG.map(async ({ key, symbol }) => {
                     const enc = encodeURIComponent(symbol);
+                    const cb = Date.now();
 
-                    // Helper to try a URL through direct + proxies (cache-busted)
-                    const tryFetch = async (url) => {
-                        const cb = Date.now();
+                    // Helper: try direct then proxies (cache-busted on proxy URL)
+                    const tryFetch = async (yahooUrl) => {
                         const attempts = [
-                            () => fetch(url, { headers: { 'Accept': 'application/json' } }),
-                            () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${cb}`),
-                            () => fetch(`https://corsproxy.io/?${encodeURIComponent(url)}&_=${cb}`),
+                            () => fetch(yahooUrl, { headers: { 'Accept': 'application/json' } }),
+                            () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}&_=${cb}`),
+                            () => fetch(`https://corsproxy.io/?${encodeURIComponent(yahooUrl)}&_=${cb}`),
                         ];
                         for (const attempt of attempts) {
                             try {
@@ -722,13 +719,12 @@ export default function PortfolioTracker() {
                         return null;
                     };
 
-                    // Fetch 1: 2d/1d for current price + reliable previousClose from candles
+                    // Fetch 1: 2d/1d for price + reliable previousClose from candles
                     const daily = await tryFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${enc}?interval=1d&range=2d`);
                     if (!daily) return;
                     const price = daily?.meta?.regularMarketPrice;
                     if (!price || price <= 0) return;
 
-                    // Use meta.previousClose if available, otherwise take first valid daily candle
                     const metaPrevClose = daily?.meta?.previousClose;
                     const dailyCloses = daily?.indicators?.quote?.[0]?.close || [];
                     const candlePrevClose = dailyCloses.find(c => c != null) || null;
@@ -738,8 +734,7 @@ export default function PortfolioTracker() {
                     let sparkline = [];
                     const intraday = await tryFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${enc}?interval=5m&range=1d`);
                     if (intraday) {
-                        const closes = intraday?.indicators?.quote?.[0]?.close || [];
-                        sparkline = closes.filter(v => v != null);
+                        sparkline = (intraday?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
                     }
 
                     results[key] = { price, prevClose, sparkline };
