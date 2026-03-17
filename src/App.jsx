@@ -640,14 +640,13 @@ export default function PortfolioTracker() {
                 
                 // Only keep prices for currently open positions
                 await Promise.all(symbols.map(async (symbol) => {
-                    // Try to preserve existing price first
+                    // Preserve existing current price as fallback only
                     if (currentPrices[symbol]) {
                         newPrices[symbol] = currentPrices[symbol];
                     }
-                    if (prevClosePrices[symbol]) {
-                        newPrevCloses[symbol] = prevClosePrices[symbol];
-                    }
-                    // Then fetch new price data
+                    // Do NOT seed prevClose from stale state — always use freshly fetched value.
+                    // Seeding caused CHG/DAY% to be calculated against an old previousClose
+                    // when the fetch succeeded for currentPrice but returned null for previousClose.
                     const priceData = await fetchPriceForSymbol(symbol);
                     if (priceData !== null) {
                         newPrices[symbol] = priceData.currentPrice;
