@@ -586,9 +586,9 @@ export default function PortfolioTracker() {
             }, [trades]);
 
             const fetchPriceForSymbol = async (symbol) => {
-                // Clean symbol for Yahoo (e.g. BBD-B.TO stays as-is, Canadian stocks use .TO)
                 const yahooSymbol = symbol;
-                const range = isMarketOpen() ? '5d' : '1d';
+                // Always request 2d so we get yesterday's candle for previousClose
+                const range = '2d';
 
                 // Strategy 1: Direct Yahoo Finance v8
                 const attempts = [
@@ -607,12 +607,15 @@ export default function PortfolioTracker() {
                         const data = await response.json();
                         const result = data?.chart?.result?.[0];
                         const currentPrice = result?.meta?.regularMarketPrice;
-                        
-                        // Use Yahoo's authoritative previousClose from meta only.
-                        // The candle-based fallback (closes[length-2]) is unreliable on weekends
-                        // as it picks the wrong trading day depending on range/interval.
-                        const previousClose = result?.meta?.previousClose || result?.meta?.chartPreviousClose || null;
-                        
+
+                        // Prefer meta.previousClose, but Yahoo often omits it when going through
+                        // proxies. Fall back to the first valid close in the candle data (range=2d
+                        // gives us yesterday's candle as closes[0]).
+                        const metaPrevClose = result?.meta?.previousClose;
+                        const closes = result?.indicators?.quote?.[0]?.close || [];
+                        const candlePrevClose = closes.find(c => c != null) || null;
+                        const previousClose = metaPrevClose || candlePrevClose || null;
+
                         if (currentPrice && currentPrice > 0) {
                             return { currentPrice, previousClose };
                         }
