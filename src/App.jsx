@@ -590,14 +590,16 @@ export default function PortfolioTracker() {
                 // Always request 2d so we get yesterday's candle for previousClose
                 const range = '2d';
 
+                // Cache-bust parameter so proxies never serve stale data
+                const cb = `&_=${Date.now()}`;
                 // Strategy 1: Direct Yahoo Finance v8
                 const attempts = [
                     () => fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`, { headers: { 'Accept': 'application/json' } }),
                     () => fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`, { headers: { 'Accept': 'application/json' } }),
-                    // Strategy 2: allorigins CORS proxy
-                    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`)}`),
-                    // Strategy 3: corsproxy.io
-                    () => fetch(`https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`)}`),
+                    // Strategy 2: allorigins CORS proxy (cache-busted)
+                    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}${cb}`)}`),
+                    // Strategy 3: corsproxy.io (cache-busted)
+                    () => fetch(`https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}${cb}`)}`),
                 ];
 
                 for (const attempt of attempts) {
@@ -701,12 +703,13 @@ export default function PortfolioTracker() {
                 await Promise.all(INDEX_CONFIG.map(async ({ key, symbol }) => {
                     const enc = encodeURIComponent(symbol);
 
-                    // Helper to try a URL through direct + proxies
+                    // Helper to try a URL through direct + proxies (cache-busted)
                     const tryFetch = async (url) => {
+                        const cb = `&_=${Date.now()}`;
                         const attempts = [
                             () => fetch(url, { headers: { 'Accept': 'application/json' } }),
-                            () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`),
-                            () => fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`),
+                            () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url + cb)}`),
+                            () => fetch(`https://corsproxy.io/?${encodeURIComponent(url + cb)}`),
                         ];
                         for (const attempt of attempts) {
                             try {
