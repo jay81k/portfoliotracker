@@ -700,28 +700,46 @@ export default function PortfolioTracker() {
                 const results = {};
                 await Promise.all(INDEX_CONFIG.map(async ({ key, symbol }) => {
                     const enc = encodeURIComponent(symbol);
-                    const attempts = [
-                        () => fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${enc}?interval=5m&range=1d`, { headers: { 'Accept': 'application/json' } }),
-                        () => fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${enc}?interval=5m&range=1d`, { headers: { 'Accept': 'application/json' } }),
-                        () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${enc}?interval=5m&range=1d`)}`),
-                        () => fetch(`https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${enc}?interval=5m&range=1d`)}`),
-                    ];
-                    for (const attempt of attempts) {
-                        try {
-                            const res = await attempt();
-                            if (!res.ok) continue;
-                            const data = await res.json();
-                            const result = data?.chart?.result?.[0];
-                            const price = result?.meta?.regularMarketPrice;
-                            const prevClose = result?.meta?.previousClose || result?.meta?.chartPreviousClose;
-                            const closes = result?.indicators?.quote?.[0]?.close || [];
-                            const sparkline = closes.filter(v => v !== null && v !== undefined);
-                            if (price && price > 0) {
-                                results[key] = { price, prevClose, sparkline };
-                                break;
-                            }
-                        } catch (e) { /* try next */ }
+
+                    // Helper to try a URL through direct + proxies
+                    const tryFetch = async (url) => {
+                        const attempts = [
+                            () => fetch(url, { headers: { 'Accept': 'application/json' } }),
+                            () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`),
+                            () => fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`),
+                        ];
+                        for (const attempt of attempts) {
+                            try {
+                                const res = await attempt();
+                                if (!res.ok) continue;
+                                const data = await res.json();
+                                if (data?.chart?.result?.[0]) return data.chart.result[0];
+                            } catch (e) { /* try next */ }
+                        }
+                        return null;
+                    };
+
+                    // Fetch 1: 2d/1d for current price + reliable previousClose from candles
+                    const daily = await tryFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${enc}?interval=1d&range=2d`);
+                    if (!daily) return;
+                    const price = daily?.meta?.regularMarketPrice;
+                    if (!price || price <= 0) return;
+
+                    // Use meta.previousClose if available, otherwise take first valid daily candle
+                    const metaPrevClose = daily?.meta?.previousClose;
+                    const dailyCloses = daily?.indicators?.quote?.[0]?.close || [];
+                    const candlePrevClose = dailyCloses.find(c => c != null) || null;
+                    const prevClose = metaPrevClose || candlePrevClose || null;
+
+                    // Fetch 2: 1d/5m for sparkline only
+                    let sparkline = [];
+                    const intraday = await tryFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${enc}?interval=5m&range=1d`);
+                    if (intraday) {
+                        const closes = intraday?.indicators?.quote?.[0]?.close || [];
+                        sparkline = closes.filter(v => v != null);
                     }
+
+                    results[key] = { price, prevClose, sparkline };
                 }));
                 if (Object.keys(results).length > 0) setIndexQuotes(prev => ({ ...prev, ...results }));
             };
