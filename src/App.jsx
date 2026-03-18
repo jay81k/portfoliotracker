@@ -585,45 +585,26 @@ export default function PortfolioTracker() {
                 }
             }, [trades]);
 
+            const PROXY = 'https://yahoo-proxy.jay69k.workers.dev';
+
             const fetchPriceForSymbol = async (symbol) => {
-                const yahooSymbol = symbol;
-                // Always use 2d so yesterday's candle is available for previousClose
-                const range = '2d';
-                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`;
-                const yahooUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`;
-                // Cache bust appended to proxy URL (not inside encoded Yahoo URL) to avoid double-encoding
-                const cb = Date.now();
-
-                const attempts = [
-                    () => fetch(yahooUrl, { headers: { 'Accept': 'application/json' } }),
-                    () => fetch(yahooUrl2, { headers: { 'Accept': 'application/json' } }),
-                    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}&_=${cb}`),
-                    () => fetch(`https://corsproxy.io/?${encodeURIComponent(yahooUrl)}&_=${cb}`),
-                ];
-
-                for (const attempt of attempts) {
-                    try {
-                        const response = await attempt();
-                        if (!response.ok) continue;
-                        const data = await response.json();
-                        const result = data?.chart?.result?.[0];
-                        const currentPrice = result?.meta?.regularMarketPrice;
-
-                        // meta.previousClose is often missing through proxies.
-                        // Fall back to closes[0] from the 2d candle which is yesterday's confirmed close.
-                        const metaPrevClose = result?.meta?.previousClose;
-                        const closes = result?.indicators?.quote?.[0]?.close || [];
-                        const candlePrevClose = closes.find(c => c != null) || null;
-                        const previousClose = metaPrevClose || candlePrevClose || null;
-
-                        if (currentPrice && currentPrice > 0) {
-                            return { currentPrice, previousClose };
-                        }
-                    } catch (e) {
-                        // silently try next
+                try {
+                    const url = `${PROXY}?symbol=${encodeURIComponent(symbol)}&interval=1d&range=2d`;
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    const result = data?.chart?.result?.[0];
+                    const currentPrice = result?.meta?.regularMarketPrice;
+                    const metaPrevClose = result?.meta?.previousClose;
+                    const closes = result?.indicators?.quote?.[0]?.close || [];
+                    const candlePrevClose = closes.find(c => c != null) || null;
+                    const previousClose = metaPrevClose || candlePrevClose || null;
+                    if (currentPrice && currentPrice > 0) {
+                        return { currentPrice, previousClose };
                     }
+                } catch (e) {
+                    console.warn(`Price fetch failed for ${symbol}:`, e.message);
                 }
-                console.warn(`All price fetch attempts failed for ${symbol}`);
                 return null;
             };
 
@@ -698,46 +679,37 @@ export default function PortfolioTracker() {
             const fetchIndexQuotes = async () => {
                 const results = {};
                 await Promise.all(INDEX_CONFIG.map(async ({ key, symbol }) => {
-                    const enc = encodeURIComponent(symbol);
-                    const cb = Date.now();
+                    try {
+                        // Fetch 1: 2d/1d for price + previousClose from candles
+                        const dailyUrl = `${PROXY}?symbol=${encodeURIComponent(symbol)}&interval=1d&range=2d`;
+                        const dailyRes = await fetch(dailyUrl);
+                        if (!dailyRes.ok) return;
+                        const dailyData = await dailyRes.json();
+                        const daily = dailyData?.chart?.result?.[0];
+                        const price = daily?.meta?.regularMarketPrice;
+                        if (!price || price <= 0) return;
 
-                    // Helper: try direct then proxies (cache-busted on proxy URL)
-                    const tryFetch = async (yahooUrl) => {
-                        const attempts = [
-                            () => fetch(yahooUrl, { headers: { 'Accept': 'application/json' } }),
-                            () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}&_=${cb}`),
-                            () => fetch(`https://corsproxy.io/?${encodeURIComponent(yahooUrl)}&_=${cb}`),
-                        ];
-                        for (const attempt of attempts) {
-                            try {
-                                const res = await attempt();
-                                if (!res.ok) continue;
-                                const data = await res.json();
-                                if (data?.chart?.result?.[0]) return data.chart.result[0];
-                            } catch (e) { /* try next */ }
-                        }
-                        return null;
-                    };
+                        const metaPrevClose = daily?.meta?.previousClose;
+                        const dailyCloses = daily?.indicators?.quote?.[0]?.close || [];
+                        const candlePrevClose = dailyCloses.find(c => c != null) || null;
+                        const prevClose = metaPrevClose || candlePrevClose || null;
 
-                    // Fetch 1: 2d/1d for price + reliable previousClose from candles
-                    const daily = await tryFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${enc}?interval=1d&range=2d`);
-                    if (!daily) return;
-                    const price = daily?.meta?.regularMarketPrice;
-                    if (!price || price <= 0) return;
+                        // Fetch 2: 1d/5m for sparkline
+                        let sparkline = [];
+                        try {
+                            const intradayUrl = `${PROXY}?symbol=${encodeURIComponent(symbol)}&interval=5m&range=1d`;
+                            const intradayRes = await fetch(intradayUrl);
+                            if (intradayRes.ok) {
+                                const intradayData = await intradayRes.json();
+                                const intraday = intradayData?.chart?.result?.[0];
+                                sparkline = (intraday?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+                            }
+                        } catch (e) { /* sparkline optional */ }
 
-                    const metaPrevClose = daily?.meta?.previousClose;
-                    const dailyCloses = daily?.indicators?.quote?.[0]?.close || [];
-                    const candlePrevClose = dailyCloses.find(c => c != null) || null;
-                    const prevClose = metaPrevClose || candlePrevClose || null;
-
-                    // Fetch 2: 1d/5m for sparkline only
-                    let sparkline = [];
-                    const intraday = await tryFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${enc}?interval=5m&range=1d`);
-                    if (intraday) {
-                        sparkline = (intraday?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+                        results[key] = { price, prevClose, sparkline };
+                    } catch (e) {
+                        console.warn(`Index fetch failed for ${symbol}:`, e.message);
                     }
-
-                    results[key] = { price, prevClose, sparkline };
                 }));
                 if (Object.keys(results).length > 0) setIndexQuotes(prev => ({ ...prev, ...results }));
             };
