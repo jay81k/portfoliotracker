@@ -5864,7 +5864,7 @@ export default function PortfolioTracker() {
                                                                     return (
                                                                         <div key={s} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'12px', lineHeight:'1.7' }}>
                                                                             <span style={{ fontSize:'0.78rem', fontWeight:'600', color:T.textPrimary, fontFamily:GM }}>{s}</span>
-                                                                            <span style={{ fontSize:'0.75rem', fontWeight:'600', color:spCol, fontFamily:GM }}>{sp >= 0 ? '+' : ''}{fmtPnl(sp)}</span>
+                                                                            <span style={{ fontSize:'0.75rem', fontWeight:'600', color:spCol, fontFamily:GM }}>{fmtPnl(sp)}</span>
                                                                         </div>
                                                                     );
                                                                 })}
