@@ -5553,10 +5553,11 @@ export default function PortfolioTracker() {
                 const calDayMap = (() => {
                     const map = {};
                     const addToMap = (dateKey, pnl, sym) => {
-                        if (!map[dateKey]) map[dateKey] = { pnl: 0, tradeCount: 0, symbols: [] };
+                        if (!map[dateKey]) map[dateKey] = { pnl: 0, tradeCount: 0, symbols: [], symbolPnl: {} };
                         map[dateKey].pnl += pnl;
                         map[dateKey].tradeCount += 1;
                         if (sym && !map[dateKey].symbols.includes(sym)) map[dateKey].symbols.push(sym);
+                        if (sym) map[dateKey].symbolPnl[sym] = (map[dateKey].symbolPnl[sym] || 0) + pnl;
                     };
                     trades.forEach(t => {
                         const sym = t.symbol || t.name || '';
@@ -5842,6 +5843,7 @@ export default function PortfolioTracker() {
                                                 const pnl = data ? data.pnl : 0;
                                                 const count = data ? data.tradeCount : 0;
                                                 const symbols = data ? data.symbols : [];
+                                                const symbolPnl = data ? (data.symbolPnl || {}) : {};
                                                 const pnlCol = pnl > 0 ? T.green : pnl < 0 ? T.red : T.textVeryFaint;
                                                 return (
                                                     <div key={di} style={{ background: isToday ? todayBg : cellBg, borderRight: `1px solid ${bd}`, borderTop: isToday ? `2px solid ${todayBd}` : '2px solid transparent', minHeight: '110px', padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', position: 'relative', transition: 'background 0.1s' }}
@@ -5856,7 +5858,16 @@ export default function PortfolioTracker() {
                                                         {symbols.length > 0 && (
                                                             <div className="cal-tip" style={{ opacity:0, transition:'opacity 0.15s', position:'absolute', bottom:'calc(100% + 6px)', left:'0', background: isDark ? '#191919' : '#fff', border:`1px solid ${T.borderStrong}`, borderRadius:'8px', padding:'0.5rem 0.7rem', zIndex:300, pointerEvents:'none', boxShadow: isDark ? '0 12px 32px rgba(0,0,0,0.7)' : '0 6px 20px rgba(0,0,0,0.13)', minWidth:'110px', maxWidth:'180px' }}>
                                                                 <div style={{ fontSize:'0.6rem', color:T.textMuted, textTransform:'uppercase', letterSpacing:'0.1em', fontWeight:'700', marginBottom:'0.35rem', fontFamily:GF }}>Traded</div>
-                                                                {symbols.slice(0,8).map(s => <div key={s} style={{ fontSize:'0.78rem', fontWeight:'600', color:T.textPrimary, fontFamily:GM, lineHeight:'1.7' }}>{s}</div>)}
+                                                                {symbols.slice(0,8).map(s => {
+                                                                    const sp = symbolPnl[s] || 0;
+                                                                    const spCol = sp > 0 ? T.green : sp < 0 ? T.red : T.textMuted;
+                                                                    return (
+                                                                        <div key={s} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'12px', lineHeight:'1.7' }}>
+                                                                            <span style={{ fontSize:'0.78rem', fontWeight:'600', color:T.textPrimary, fontFamily:GM }}>{s}</span>
+                                                                            <span style={{ fontSize:'0.75rem', fontWeight:'600', color:spCol, fontFamily:GM }}>{sp >= 0 ? '+' : ''}{fmtPnl(sp)}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                                 {symbols.length > 8 && <div style={{ fontSize:'0.65rem', color:T.textMuted, marginTop:'3px' }}>+{symbols.length-8} more</div>}
                                                             </div>
                                                         )}
