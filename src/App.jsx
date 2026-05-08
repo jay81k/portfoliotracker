@@ -6864,12 +6864,16 @@ export default function PortfolioTracker() {
                                     const isWin  = outcome === 'win';
                                     const isLoss = outcome === 'loss';
                                     const isOpen = outcome === 'open';
-                                    const profit = t.exitPrice != null
+                                    const capitalGains = t.exitPrice != null
                                         ? (t.direction === 'short'
                                             ? (t.entryPrice - t.exitPrice) * t.qty
-                                            : (t.exitPrice - t.entryPrice) * t.qty)
-                                        : null;
-                                    const profitPct = profit != null ? (profit / (t.entryPrice * t.qty)) * 100 : null;
+                                            : (t.exitPrice - t.entryPrice) * t.qty) - (t.fees || 0)
+                                        : (t.profit || null);
+                                    const partialProfit = (t.partialExits || []).reduce((s, pe) => s + (pe.profit || 0), 0);
+                                    const dividends = t.dividend || 0;
+                                    const profit = capitalGains !== null ? capitalGains + partialProfit + dividends : null;
+                                    const costBasis = t.entryPrice * (t.originalQty || t.qty);
+                                    const profitPct = profit !== null && costBasis > 0 ? (profit / costBasis) * 100 : null;
                                     const holdDays = t.exitDate
                                         ? Math.round((new Date(t.exitDate) - new Date(t.entryDate)) / 86400000)
                                         : Math.round((new Date() - new Date(t.entryDate)) / 86400000);
