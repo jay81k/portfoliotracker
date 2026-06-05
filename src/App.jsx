@@ -405,9 +405,20 @@ export default function PortfolioTracker() {
             // Always derive profit from exitPrice when available — stored profit can be stale/zero
             const getEffectiveProfit = (t) => {
                 if (t.exitPrice != null && t.exitPrice !== undefined) {
+                    const totalFees = t.fees || 0;
+                    const partialExits = t.partialExits || [];
+                    // Partial exits already deduct a proportional share of fees each.
+                    // Only deduct the remaining unallocated portion here to avoid double-counting.
+                    const allocatedFees = partialExits.length > 0
+                        ? partialExits.reduce((s, pe) => {
+                            const origQty = t.originalQty || (t.qty + partialExits.reduce((sum, p) => sum + (p.qty || 0), 0));
+                            return s + ((pe.qty || 0) / origQty) * totalFees;
+                          }, 0)
+                        : 0;
+                    const remainingFees = Math.max(0, totalFees - allocatedFees);
                     return (t.direction === 'short'
                         ? (t.entryPrice - t.exitPrice) * t.qty
-                        : (t.exitPrice - t.entryPrice) * t.qty) - (t.fees || 0);
+                        : (t.exitPrice - t.entryPrice) * t.qty) - remainingFees;
                 }
                 return t.profit || 0;
             };
@@ -1865,8 +1876,8 @@ export default function PortfolioTracker() {
                             bVal = getEffectiveProfit(b);
                             break;
                         case 'totalProfit':
-                            aVal = getEffectiveProfit(a) + (a.dividend || 0);
-                            bVal = getEffectiveProfit(b) + (b.dividend || 0);
+                            aVal = getTotalProfit(a) + (a.dividend || 0);
+                            bVal = getTotalProfit(b) + (b.dividend || 0);
                             break;
                         case 'changePercent':
                             // For open trades: compare current price to entry
@@ -6098,12 +6109,18 @@ export default function PortfolioTracker() {
                                                 : 'closed';
                                             const partialExits = trade.partialExits || [];
                                             const partialExitProfit = partialExits.reduce((sum, pe) => sum + pe.profit, 0);
-                                            const liveProfit = isOpen
-                                                ? (trade.direction === 'short' 
-                                                    ? (trade.entryPrice - currentPrice) * trade.qty - trade.fees
-                                                    : (currentPrice - trade.entryPrice) * trade.qty - trade.fees)
-                                                : getEffectiveProfit(trade) + partialExitProfit;
-                                            const totalProfit = liveProfit + (trade.dividend || 0);
+                                            // Gross: pure price movement, no fees — shown in Profit column
+                                            const grossProfit = isOpen
+                                                ? (trade.direction === 'short'
+                                                    ? (trade.entryPrice - currentPrice) * trade.qty
+                                                    : (currentPrice - trade.entryPrice) * trade.qty) + partialExitProfit
+                                                : (trade.direction === 'short'
+                                                    ? (trade.entryPrice - (trade.exitPrice || trade.entryPrice)) * trade.qty
+                                                    : ((trade.exitPrice || trade.entryPrice) - trade.entryPrice) * trade.qty) + partialExitProfit;
+                                            // Net: fees deducted — used for WIN/LOSS badge accuracy
+                                            const netProfit = grossProfit - (trade.fees || 0);
+                                            // Total Profit: net + dividends — shown in Total Profit column
+                                            const totalProfit = netProfit + (trade.dividend || 0);
                                             const originalQty = trade.originalQty || trade.qty;
                                             return (
                                             <React.Fragment key={trade.id}>
@@ -6248,8 +6265,8 @@ export default function PortfolioTracker() {
                                                 <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: T.blue }}>
                                                     ${(trade.qty * currentPrice).toFixed(2)}
                                                 </td>
-                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: liveProfit >= 0 ? T.green : T.red }}>
-                                                    {liveProfit >= 0 ? '+' : ''}${liveProfit.toFixed(2)}
+                                                <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: grossProfit >= 0 ? T.green : T.red }}>
+                                                    {grossProfit >= 0 ? '+' : ''}${grossProfit.toFixed(2)}
                                                 </td>
                                                 <td style={{ padding: '0.6rem 0.7rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: '600', color: totalProfit >= 0 ? T.green : T.red }}>
                                                     {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
@@ -6257,10 +6274,10 @@ export default function PortfolioTracker() {
                                                 </td>
                                                 <td style={{ padding: '0.6rem 0.7rem' }}>
                                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '0.25rem 0.75rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', minWidth: '52px', textAlign: 'center', letterSpacing: '-0.02em',
-                                                        background: isOpen ? T.blueBg : (liveProfit >= -5 && liveProfit <= 5 ? T.borderStrong : (liveProfit > 5 ? T.greenBgDim : T.redBg)),
-                                                        color: isOpen ? T.blue : (liveProfit >= -5 && liveProfit <= 5 ? T.textMuted : (liveProfit > 5 ? T.green : T.red)) }}>
-                                                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0, background: isOpen ? T.blue : (liveProfit >= -5 && liveProfit <= 5 ? T.textMuted : (liveProfit > 5 ? T.green : T.red)) }} />
-                                                        {isOpen ? 'OPEN' : (liveProfit >= -5 && liveProfit <= 5 ? 'EVEN' : (liveProfit > 5 ? 'WIN' : 'LOSS'))}
+                                                        background: isOpen ? T.blueBg : (netProfit >= -5 && netProfit <= 5 ? T.borderStrong : (netProfit > 5 ? T.greenBgDim : T.redBg)),
+                                                        color: isOpen ? T.blue : (netProfit >= -5 && netProfit <= 5 ? T.textMuted : (netProfit > 5 ? T.green : T.red)) }}>
+                                                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0, background: isOpen ? T.blue : (netProfit >= -5 && netProfit <= 5 ? T.textMuted : (netProfit > 5 ? T.green : T.red)) }} />
+                                                        {isOpen ? 'OPEN' : (netProfit >= -5 && netProfit <= 5 ? 'EVEN' : (netProfit > 5 ? 'WIN' : 'LOSS'))}
                                                     </span>
                                                 </td>
                                                 <td style={{ padding: '0.6rem 0.7rem', textAlign: 'center' }}>
