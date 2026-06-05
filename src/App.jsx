@@ -1109,15 +1109,18 @@ export default function PortfolioTracker() {
                     return;
                 }
 
+                const peGross = (editingTrade.direction === 'short'
+                    ? (editingTrade.entryPrice - parseFloat(partialExitForm.exitPrice)) * exitQty
+                    : (parseFloat(partialExitForm.exitPrice) - editingTrade.entryPrice) * exitQty);
+                const peFees = (exitQty / (editingTrade.originalQty || editingTrade.qty)) * (editingTrade.fees || 0);
                 const partialExit = {
                     id: Date.now(),
                     qty: exitQty,
                     exitPrice: parseFloat(partialExitForm.exitPrice),
                     exitDate: partialExitForm.exitDate,
-                    profit: (editingTrade.direction === 'short'
-                        ? (editingTrade.entryPrice - parseFloat(partialExitForm.exitPrice)) * exitQty
-                        : (parseFloat(partialExitForm.exitPrice) - editingTrade.entryPrice) * exitQty)
-                        - ((exitQty / (editingTrade.originalQty || editingTrade.qty)) * (editingTrade.fees || 0))
+                    fees: peFees,
+                    grossProfit: peGross,
+                    profit: peGross - peFees
                 };
 
                 const updatedTrade = {
@@ -1163,15 +1166,18 @@ export default function PortfolioTracker() {
                     return;
                 }
 
+                const updPeGross = (editingTrade.direction === 'short'
+                    ? (editingTrade.entryPrice - parseFloat(partialExitForm.exitPrice)) * exitQty
+                    : (parseFloat(partialExitForm.exitPrice) - editingTrade.entryPrice) * exitQty);
+                const updPeFees = (exitQty / (editingTrade.originalQty || editingTrade.qty)) * (editingTrade.fees || 0);
                 const updatedPartialExit = {
                     ...oldExit,
                     qty: exitQty,
                     exitPrice: parseFloat(partialExitForm.exitPrice),
                     exitDate: partialExitForm.exitDate,
-                    profit: (editingTrade.direction === 'short'
-                        ? (editingTrade.entryPrice - parseFloat(partialExitForm.exitPrice)) * exitQty
-                        : (parseFloat(partialExitForm.exitPrice) - editingTrade.entryPrice) * exitQty)
-                        - ((exitQty / (editingTrade.originalQty || editingTrade.qty)) * (editingTrade.fees || 0))
+                    fees: updPeFees,
+                    grossProfit: updPeGross,
+                    profit: updPeGross - updPeFees
                 };
 
                 const profitDifference = updatedPartialExit.profit - oldExit.profit;
@@ -6108,19 +6114,26 @@ export default function PortfolioTracker() {
                                                 ? (manualPrice ? 'manual' : livePrice ? 'live' : 'entry')
                                                 : 'closed';
                                             const partialExits = trade.partialExits || [];
-                                            const partialExitProfit = partialExits.reduce((sum, pe) => sum + pe.profit, 0);
-                                            // Gross: pure price movement, no fees — shown in Profit column
+                                            // Reconstruct gross partial profit (fee-free) for correct Total Profit math.
+                                            // New exits store pe.grossProfit directly; old exits derive it from trade.fees.
+                                            const origQtyForFees = trade.originalQty || (trade.qty + partialExits.reduce((s, pe) => s + (pe.qty || 0), 0));
+                                            const partialGrossProfit = partialExits.reduce((sum, pe) => {
+                                                if (pe.grossProfit != null) return sum + pe.grossProfit;
+                                                const peFees = pe.fees != null ? pe.fees : ((pe.qty / origQtyForFees) * (trade.fees || 0));
+                                                return sum + (pe.profit || 0) + peFees;
+                                            }, 0);
+                                            // Profit column: ONLY the remaining position's price gain — no partial exits, no fees
                                             const grossProfit = isOpen
                                                 ? (trade.direction === 'short'
                                                     ? (trade.entryPrice - currentPrice) * trade.qty
-                                                    : (currentPrice - trade.entryPrice) * trade.qty) + partialExitProfit
+                                                    : (currentPrice - trade.entryPrice) * trade.qty)
                                                 : (trade.direction === 'short'
                                                     ? (trade.entryPrice - (trade.exitPrice || trade.entryPrice)) * trade.qty
-                                                    : ((trade.exitPrice || trade.entryPrice) - trade.entryPrice) * trade.qty) + partialExitProfit;
-                                            // Net: fees deducted — used for WIN/LOSS badge accuracy
-                                            const netProfit = grossProfit - (trade.fees || 0);
-                                            // Total Profit: net + dividends — shown in Total Profit column
-                                            const totalProfit = netProfit + (trade.dividend || 0);
+                                                    : ((trade.exitPrice || trade.entryPrice) - trade.entryPrice) * trade.qty);
+                                            // Net: all fees deducted + partials included — drives WIN/LOSS badge
+                                            const netProfit = grossProfit + partialGrossProfit - (trade.fees || 0);
+                                            // Total Profit: scale-out gains + remaining position − fees + dividends
+                                            const totalProfit = partialGrossProfit + grossProfit - (trade.fees || 0) + (trade.dividend || 0);
                                             const originalQty = trade.originalQty || trade.qty;
                                             return (
                                             <React.Fragment key={trade.id}>
