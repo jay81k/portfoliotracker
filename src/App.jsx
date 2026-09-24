@@ -600,28 +600,15 @@ export default function PortfolioTracker() {
 
             const fetchPriceForSymbol = async (symbol) => {
                 try {
-                    const url = `${PROXY}?symbol=${encodeURIComponent(symbol)}&interval=1d&range=5d`;
+                    const url = `${PROXY}?symbol=${encodeURIComponent(symbol)}&interval=1d&range=2d`;
                     const response = await fetch(url);
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const data = await response.json();
                     const result = data?.chart?.result?.[0];
                     const currentPrice = result?.meta?.regularMarketPrice;
                     const metaPrevClose = result?.meta?.previousClose;
-                    // Walk candles backward by DATE, not array position — a gap in
-                    // Yahoo's daily bars (missing/delayed session) used to make
-                    // closes.find(c => c != null) grab whatever the first non-null
-                    // slot happened to be, which was sometimes today's own bar
-                    // instead of yesterday's. This skips today's bar and any nulls
-                    // explicitly, and range=5d gives room for more than one gap.
-                    const timestamps = result?.timestamp || [];
                     const closes = result?.indicators?.quote?.[0]?.close || [];
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    let candlePrevClose = null;
-                    for (let i = timestamps.length - 1; i >= 0; i--) {
-                        if (closes[i] == null) continue;
-                        const barDateStr = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
-                        if (barDateStr !== todayStr) { candlePrevClose = closes[i]; break; }
-                    }
+                    const candlePrevClose = closes.find(c => c != null) || null;
                     const previousClose = metaPrevClose || candlePrevClose || null;
                     if (currentPrice && currentPrice > 0) {
                         return { currentPrice, previousClose };
@@ -704,8 +691,8 @@ export default function PortfolioTracker() {
                 const results = {};
                 await Promise.all(INDEX_CONFIG.map(async ({ key, symbol }) => {
                     try {
-                        // Fetch 1: 5d/1d for price + previousClose from candles
-                        const dailyUrl = `${PROXY}?symbol=${encodeURIComponent(symbol)}&interval=1d&range=5d`;
+                        // Fetch 1: 2d/1d for price + previousClose from candles
+                        const dailyUrl = `${PROXY}?symbol=${encodeURIComponent(symbol)}&interval=1d&range=2d`;
                         const dailyRes = await fetch(dailyUrl);
                         if (!dailyRes.ok) return;
                         const dailyData = await dailyRes.json();
@@ -714,18 +701,8 @@ export default function PortfolioTracker() {
                         if (!price || price <= 0) return;
 
                         const metaPrevClose = daily?.meta?.previousClose;
-                        // Same date-aware walk as fetchPriceForSymbol — a gap in the
-                        // daily bars was landing on today's own candle instead of
-                        // yesterday's via plain closes.find(c => c != null).
-                        const dailyTimestamps = daily?.timestamp || [];
                         const dailyCloses = daily?.indicators?.quote?.[0]?.close || [];
-                        const todayStr = new Date().toISOString().split('T')[0];
-                        let candlePrevClose = null;
-                        for (let i = dailyTimestamps.length - 1; i >= 0; i--) {
-                            if (dailyCloses[i] == null) continue;
-                            const barDateStr = new Date(dailyTimestamps[i] * 1000).toISOString().split('T')[0];
-                            if (barDateStr !== todayStr) { candlePrevClose = dailyCloses[i]; break; }
-                        }
+                        const candlePrevClose = dailyCloses.find(c => c != null) || null;
                         const prevClose = metaPrevClose || candlePrevClose || null;
 
                         // Fetch 2: 1d/5m for sparkline
