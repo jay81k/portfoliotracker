@@ -94,6 +94,25 @@ import './risk-calc.css';
         };
         // ─────────────────────────────────────────────────────────────────────
 
+// ── Post-trade review: fixed option lists (fixed so they can be aggregated later) ──
+const REVIEW_SCORE_FIELDS = [
+    { key: 'entry',  label: 'Entry' },
+    { key: 'exit',   label: 'Exit' },
+    { key: 'sizing', label: 'Sizing' },
+    { key: 'plan',   label: 'Plan adherence' },
+];
+const REVIEW_MISTAKES = [
+    'Chased / FOMO entry',
+    'No stop / moved stop',
+    'Oversized',
+    'Sold too early',
+    'Held too long',
+    'Ignored thesis',
+    'Revenge trade',
+    'No plan',
+];
+const REVIEW_NONE_TAG = 'None (clean execution)';
+
 export default function PortfolioTracker() {
             const [trades, setTrades] = useState([]);
             const tradesRef = React.useRef([]);
@@ -174,6 +193,9 @@ export default function PortfolioTracker() {
             const [journalEditingNotes, setJournalEditingNotes] = useState(null);
             const [journalCamOpen, setJournalCamOpen] = useState(false);
             const [journalActivityExpanded, setJournalActivityExpanded] = useState(false);
+            const [journalNeedsReview, setJournalNeedsReview] = useState(false);
+            const [journalReviewEditing, setJournalReviewEditing] = useState(null); // trade id being reviewed
+            const [journalReviewDraft, setJournalReviewDraft] = useState({ scores: {}, mistakes: [] });
             const [sortColumn, setSortColumn] = useState(null);
             const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
             const [searchTerm, setSearchTerm] = useState('');
@@ -596,7 +618,7 @@ export default function PortfolioTracker() {
                 }
             }, [trades]);
 
-            const PROXY = 'https://portfolio-yahoo-proxy.jay69k.workers.dev';
+            const PROXY = 'https://yahoo-proxy.jay69k.workers.dev';
 
             const fetchPriceForSymbol = async (symbol) => {
                 try {
@@ -858,6 +880,20 @@ export default function PortfolioTracker() {
                 await saveTrades(updated);
                 setJournalSelected(updatedTrade);
                 showToast('success', 'Saved', 'Journal notes updated.');
+            };
+
+            const saveJournalReview = async (tradeId, review) => {
+                const existing = tradesRef.current.find(t => t.id === tradeId);
+                if (!existing) {
+                    showToast('error', 'Cannot Save Review', "This trade belongs to another portfolio. Switch to that portfolio to review it.");
+                    return false;
+                }
+                const updatedTrade = { ...existing, review };
+                const updated = tradesRef.current.map(t => t.id === tradeId ? updatedTrade : t);
+                await saveTrades(updated);
+                setJournalSelected(updatedTrade);
+                showToast('success', 'Review Saved', 'Post-trade review updated.');
+                return true;
             };
 
             const saveJournalScreenshot = async (tradeId, file) => {
@@ -6694,7 +6730,7 @@ export default function PortfolioTracker() {
             // ── Journal View ──────────────────────────────────────
             if (view === 'journal') {
                 const journalTrades = (portfolioViewMode === 'all' && portfolios.length > 1 ? allPortfolioTrades : trades)
-                    .filter(t => t.notes && t.notes.trim().length > 0);
+                    .filter(t => (t.notes && t.notes.trim().length > 0) || t.exitDate || t.review);
 
                 const extractTags = (text) => (text.match(/#\w+/g) || []).map(t => t.toLowerCase());
                 const allTags = [...new Set(journalTrades.flatMap(t => extractTags(t.notes || '')))].sort();
@@ -6705,6 +6741,9 @@ export default function PortfolioTracker() {
                     return p > 0 ? 'win' : p < 0 ? 'loss' : 'even';
                 };
 
+                const needsReview = (t) => !!t.exitDate && !t.review;
+                const needsReviewCount = journalTrades.filter(needsReview).length;
+
                 const filteredJournal = journalTrades.filter(t => {
                     const outcome = getOutcome(t);
                     const matchesOutcome = journalFilter === 'all' || outcome === journalFilter;
@@ -6713,7 +6752,7 @@ export default function PortfolioTracker() {
                     const matchesSearch = !q || (t.symbol || '').toLowerCase().includes(q)
                         || (t.name || '').toLowerCase().includes(q)
                         || (t.notes || '').toLowerCase().includes(q);
-                    return matchesOutcome && matchesTag && matchesSearch;
+                    return matchesOutcome && matchesTag && matchesSearch && (!journalNeedsReview || needsReview(t));
                 }).sort((a, b) => {
                     if (journalSortField === 'symbol') {
                         const sa = (a.symbol || '').toLowerCase();
@@ -6809,6 +6848,12 @@ export default function PortfolioTracker() {
                                             }}>{f.label}</button>
                                         ))}
                                     </div>
+                                    <button onClick={() => setJournalNeedsReview(v => !v)} style={{
+                                        width: '100%', marginTop: '6px', padding: '3px 0', fontSize: '0.68rem', fontWeight: '600', letterSpacing: '0.05em',
+                                        border: `1px solid ${journalNeedsReview ? T.amber : T.border}`, borderRadius: '4px', cursor: 'pointer',
+                                        background: journalNeedsReview ? T.amberBg : 'transparent',
+                                        color: journalNeedsReview ? T.amber : T.textMuted,
+                                    }}>Needs review{needsReviewCount > 0 ? ` (${needsReviewCount})` : ''}</button>
                                 </div>
 
                                 {/* Sort row — aligns with entry card columns */}
@@ -6846,7 +6891,7 @@ export default function PortfolioTracker() {
                                 <div style={{ overflowY: 'auto', flex: 1 }}>
                                     {filteredJournal.length === 0 ? (
                                         <div style={{ padding: '24px 14px', textAlign: 'center', color: T.textFaint, fontSize: '0.78rem' }}>
-                                            {journalTrades.length === 0 ? 'No trades with notes yet' : 'No entries match'}
+                                            {journalTrades.length === 0 ? 'No closed trades or notes yet' : 'No entries match'}
                                         </div>
                                     ) : filteredJournal.map(t => {
                                         const outcome = getOutcome(t);
@@ -6854,7 +6899,7 @@ export default function PortfolioTracker() {
                                         const outcomeColor = outcome === 'win' ? T.green : outcome === 'loss' ? T.red : T.blue;
                                         const outcomeBg    = outcome === 'win' ? (isDark ? 'rgba(0,255,136,0.12)' : 'rgba(5,150,105,0.1)') : outcome === 'loss' ? (isDark ? 'rgba(255,68,68,0.12)' : 'rgba(220,38,38,0.08)') : (isDark ? 'rgba(0,204,255,0.12)' : 'rgba(2,132,199,0.1)');
                                         return (
-                                            <div key={t.id} onClick={() => setJournalSelected(t)}
+                                            <div key={t.id} onClick={() => { setJournalSelected(t); setJournalReviewEditing(null); }}
                                                 style={{ padding: '11px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer',
                                                     background: isActive ? T.surfaceBg : T.panelBg,
                                                     borderLeft: `2px solid ${isActive ? T.green : 'transparent'}`, transition: 'background 0.1s' }}
@@ -6869,12 +6914,17 @@ export default function PortfolioTracker() {
                                                         {t.direction === 'short' && (
                                                             <span style={{ fontSize: '0.62rem', fontWeight: '700', letterSpacing: '0.06em', color: T.amber, background: isDark ? 'rgba(255,170,0,0.12)' : 'rgba(217,119,6,0.1)', padding: '1px 6px', borderRadius: '20px' }}>SHORT</span>
                                                         )}
+                                                        {needsReview(t) && (
+                                                            <span title="Needs review" style={{ width: '6px', height: '6px', borderRadius: '50%', background: T.amber, flexShrink: 0 }} />
+                                                        )}
                                                     </div>
                                                     <span style={{ fontSize: '0.68rem', color: T.textFaint }}>{t.exitDate || t.entryDate}</span>
                                                 </div>
                                                 <div style={{ fontSize: '0.75rem', color: T.textSecondary, lineHeight: '1.4',
                                                     display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                                    {(t.notes || '').replace(/#\w+/g, m => m)}
+                                                    {(t.notes || '').trim()
+                                                        ? (t.notes || '').replace(/#\w+/g, m => m)
+                                                        : <span style={{ fontStyle: 'italic', color: T.textFaint }}>No notes</span>}
                                                 </div>
                                             </div>
                                         );
@@ -7096,6 +7146,264 @@ export default function PortfolioTracker() {
                                                     </div>
                                                 </div>
                                             )}
+
+                                            {/* Post-Trade Review */}
+                                            {(() => {
+                                                const sans = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+                                                const rv = t.review || null;
+                                                const editing = journalReviewEditing === t.id;
+                                                const labelStyle = { fontFamily: sans, fontSize: '0.75rem', fontWeight: '800', color: T.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' };
+                                                const subLabel = { fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' };
+                                                const cardStyle = { border: `1px solid ${T.border}`, borderRadius: '7px', background: T.surfaceBg, padding: '16px 18px' };
+                                                const primaryBtn = { padding: '6px 18px', background: T.green, border: 'none', borderRadius: '5px', color: isDark ? '#000' : '#fff', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' };
+                                                const ghostBtn = { padding: '6px 14px', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', color: T.textSecondary, fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' };
+                                                const inputStyle = { width: '100%', padding: '8px 10px', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '6px', color: T.textPrimary, fontFamily: sans, fontSize: '0.88rem', lineHeight: '1.6', outline: 'none', boxSizing: 'border-box' };
+                                                const scoreColor = (n) => n >= 4 ? T.green : n === 3 ? T.amber : T.red;
+
+                                                // ── Open trade: locked ──
+                                                if (isOpen) {
+                                                    return (
+                                                        <div style={{ marginBottom: '22px' }}>
+                                                            <div style={labelStyle}>Post-Trade Review</div>
+                                                            <div style={{ marginTop: '8px', fontSize: '0.8rem', color: T.textFaint }}>Review unlocks when you close this trade.</div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // ── Closed, not reviewed, not editing ──
+                                                if (!rv && !editing) {
+                                                    return (
+                                                        <div style={{ ...cardStyle, marginBottom: '22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                                                            <div>
+                                                                <div style={labelStyle}>Post-Trade Review</div>
+                                                                <div style={{ marginTop: '6px', fontSize: '0.8rem', color: T.textMuted }}>Not reviewed yet. Grade your process, not the P&amp;L.</div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => { setJournalReviewDraft({ scores: {}, mistakes: [] }); setJournalReviewEditing(t.id); }}
+                                                                style={{ ...primaryBtn, flexShrink: 0 }}>
+                                                                Start review
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // ── Editing ──
+                                                if (editing) {
+                                                    const d = journalReviewDraft;
+                                                    const toggleMistake = (m) => setJournalReviewDraft(prev => {
+                                                        const has = prev.mistakes.includes(m);
+                                                        if (m === REVIEW_NONE_TAG) return { ...prev, mistakes: has ? [] : [REVIEW_NONE_TAG] };
+                                                        const base = prev.mistakes.filter(x => x !== REVIEW_NONE_TAG);
+                                                        return { ...prev, mistakes: has ? base.filter(x => x !== m) : [...base, m] };
+                                                    });
+                                                    const readNum = (id) => {
+                                                        const raw = document.getElementById(id)?.value;
+                                                        const n = parseFloat(raw);
+                                                        return raw !== '' && raw != null && !isNaN(n) ? n : null;
+                                                    };
+                                                    const readText = (id) => (document.getElementById(id)?.value || '').trim();
+                                                    const handleSaveReview = async () => {
+                                                        const missing = REVIEW_SCORE_FIELDS.filter(f => !d.scores[f.key]);
+                                                        if (missing.length > 0) {
+                                                            showToast('warning', 'Incomplete Review', `Rate ${missing.map(f => f.label.toLowerCase()).join(', ')} before saving.`);
+                                                            return;
+                                                        }
+                                                        if (d.mistakes.length === 0) {
+                                                            showToast('warning', 'Incomplete Review', 'Pick at least one mistake tag, or "None (clean execution)".');
+                                                            return;
+                                                        }
+                                                        const plannedStop = readNum(`jr-stop-${t.id}`);
+                                                        const plannedTarget = readNum(`jr-target-${t.id}`);
+                                                        const isShort = t.direction === 'short';
+                                                        if (plannedStop != null && (isShort ? plannedStop <= t.entryPrice : plannedStop >= t.entryPrice)) {
+                                                            showToast('warning', 'Check Planned Stop', `A ${isShort ? 'short' : 'long'} stop must be ${isShort ? 'above' : 'below'} the entry price.`);
+                                                            return;
+                                                        }
+                                                        if (plannedTarget != null && (isShort ? plannedTarget >= t.entryPrice : plannedTarget <= t.entryPrice)) {
+                                                            showToast('warning', 'Check Planned Target', `A ${isShort ? 'short' : 'long'} target must be ${isShort ? 'below' : 'above'} the entry price.`);
+                                                            return;
+                                                        }
+                                                        const review = {
+                                                            scores: { ...d.scores },
+                                                            mistakes: [...d.mistakes],
+                                                            plannedStop,
+                                                            plannedTarget,
+                                                            right: readText(`jr-right-${t.id}`),
+                                                            wrong: readText(`jr-wrong-${t.id}`),
+                                                            rule: readText(`jr-rule-${t.id}`),
+                                                            reviewedAt: rv?.reviewedAt || new Date().toISOString().split('T')[0],
+                                                        };
+                                                        const ok = await saveJournalReview(t.id, review);
+                                                        if (ok) setJournalReviewEditing(null);
+                                                    };
+                                                    return (
+                                                        <div style={{ ...cardStyle, marginBottom: '22px' }}>
+                                                            <div style={{ ...labelStyle, marginBottom: '4px' }}>Post-Trade Review</div>
+                                                            <div style={{ fontSize: '0.78rem', color: T.textMuted, marginBottom: '16px' }}>Grade how you executed, not how it turned out. 1 = poor, 5 = textbook.</div>
+
+                                                            {/* Scorecard */}
+                                                            <div style={subLabel}>Process scorecard</div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '18px' }}>
+                                                                {REVIEW_SCORE_FIELDS.map(f => (
+                                                                    <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                        <span style={{ width: '120px', fontFamily: sans, fontSize: '0.82rem', color: T.textSecondary }}>{f.label}</span>
+                                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                                            {[1, 2, 3, 4, 5].map(n => {
+                                                                                const sel = d.scores[f.key] === n;
+                                                                                return (
+                                                                                    <button key={n}
+                                                                                        onClick={() => setJournalReviewDraft(prev => ({ ...prev, scores: { ...prev.scores, [f.key]: n } }))}
+                                                                                        style={{ width: '30px', padding: '4px 0', fontSize: '0.78rem', fontWeight: '700', fontFamily: "'DM Mono', monospace", cursor: 'pointer', borderRadius: '4px',
+                                                                                            border: `1px solid ${sel ? scoreColor(n) : T.border}`,
+                                                                                            background: sel ? (n >= 4 ? T.greenBg : n === 3 ? T.amberBg : T.redBg) : 'transparent',
+                                                                                            color: sel ? scoreColor(n) : T.textMuted }}>
+                                                                                        {n}
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+
+                                                            {/* Mistake tags */}
+                                                            <div style={subLabel}>Mistakes</div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '18px' }}>
+                                                                {[...REVIEW_MISTAKES, REVIEW_NONE_TAG].map(m => {
+                                                                    const sel = d.mistakes.includes(m);
+                                                                    const isNone = m === REVIEW_NONE_TAG;
+                                                                    const c = isNone ? T.green : T.red;
+                                                                    return (
+                                                                        <span key={m} onClick={() => toggleMistake(m)}
+                                                                            style={{ fontFamily: sans, fontSize: '0.76rem', fontWeight: '600', cursor: 'pointer', padding: '4px 12px', borderRadius: '20px', userSelect: 'none',
+                                                                                color: sel ? c : T.textSecondary,
+                                                                                background: sel ? (isNone ? T.greenBg : T.redBg) : 'transparent',
+                                                                                border: `1px solid ${sel ? c : T.border}` }}>
+                                                                            {m}
+                                                                        </span>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            {/* Planned levels */}
+                                                            <div style={subLabel}>Planned levels <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: '500', color: T.textFaint }}>(optional, enables planned vs realized R)</span></div>
+                                                            <div style={{ display: 'flex', gap: '10px', marginBottom: '18px' }}>
+                                                                <input id={`jr-stop-${t.id}`} type="number" step="any" defaultValue={rv?.plannedStop ?? ''} placeholder="Planned stop $"
+                                                                    style={{ ...inputStyle, width: '160px', fontFamily: "'DM Mono', monospace", fontSize: '0.82rem' }} />
+                                                                <input id={`jr-target-${t.id}`} type="number" step="any" defaultValue={rv?.plannedTarget ?? ''} placeholder="Planned target $"
+                                                                    style={{ ...inputStyle, width: '160px', fontFamily: "'DM Mono', monospace", fontSize: '0.82rem' }} />
+                                                            </div>
+
+                                                            {/* Reflection */}
+                                                            <div style={subLabel}>What went right</div>
+                                                            <textarea id={`jr-right-${t.id}`} defaultValue={rv?.right || ''} rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: '12px' }} />
+                                                            <div style={subLabel}>What went wrong</div>
+                                                            <textarea id={`jr-wrong-${t.id}`} defaultValue={rv?.wrong || ''} rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: '12px' }} />
+                                                            <div style={subLabel}>Rule for next time</div>
+                                                            <textarea id={`jr-rule-${t.id}`} defaultValue={rv?.rule || ''} rows={2} placeholder="One specific, testable change. Not 'be more patient'."
+                                                                style={{ ...inputStyle, resize: 'vertical', marginBottom: '14px' }} />
+
+                                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                                <button onClick={handleSaveReview} style={primaryBtn}>Save review</button>
+                                                                <button onClick={() => setJournalReviewEditing(null)} style={ghostBtn}>Cancel</button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // ── Saved review (read-only) ──
+                                                const scoreVals = REVIEW_SCORE_FIELDS.map(f => rv.scores?.[f.key]).filter(n => n != null);
+                                                const avgScore = scoreVals.length ? scoreVals.reduce((s, n) => s + n, 0) / scoreVals.length : null;
+                                                const riskPerShare = rv.plannedStop != null ? Math.abs(t.entryPrice - rv.plannedStop) : null;
+                                                const qtyBasis = t.originalQty || t.qty;
+                                                const plannedR = riskPerShare != null && riskPerShare > 0 && rv.plannedTarget != null ? Math.abs(rv.plannedTarget - t.entryPrice) / riskPerShare : null;
+                                                const realizedR = riskPerShare != null && riskPerShare > 0 && profit != null && qtyBasis > 0 ? profit / (riskPerShare * qtyBasis) : null;
+                                                const execGap = plannedR != null && realizedR != null ? realizedR - plannedR : null;
+                                                const fmtR = (r) => r == null ? '—' : `${r >= 0 ? '+' : ''}${r.toFixed(2)}R`;
+                                                const textBlocks = [
+                                                    { label: 'What went right', text: rv.right },
+                                                    { label: 'What went wrong', text: rv.wrong },
+                                                ].filter(b => b.text);
+                                                return (
+                                                    <div style={{ ...cardStyle, marginBottom: '22px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <div style={labelStyle}>Post-Trade Review</div>
+                                                                <button
+                                                                    onClick={() => { setJournalReviewDraft({ scores: { ...(rv.scores || {}) }, mistakes: [...(rv.mistakes || [])] }); setJournalReviewEditing(t.id); }}
+                                                                    title="Edit review"
+                                                                    style={{ background: 'transparent', border: 'none', padding: '1px 3px', cursor: 'pointer', color: T.textMuted, lineHeight: 1, transition: 'color 0.12s', fontSize: '0.85rem' }}
+                                                                    onMouseEnter={e => e.currentTarget.style.color = T.green}
+                                                                    onMouseLeave={e => e.currentTarget.style.color = T.textMuted}>
+                                                                    ✎
+                                                                </button>
+                                                            </div>
+                                                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.7rem', color: T.textFaint }}>
+                                                                {avgScore != null && <span style={{ color: scoreColor(Math.round(avgScore)), marginRight: '10px' }}>Process {avgScore.toFixed(1)}/5</span>}
+                                                                Reviewed {rv.reviewedAt}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Scorecard */}
+                                                        <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden', marginBottom: '14px' }}>
+                                                            {REVIEW_SCORE_FIELDS.map((f, i, arr) => {
+                                                                const n = rv.scores?.[f.key] || 0;
+                                                                return (
+                                                                    <div key={f.key} style={{ flex: 1, padding: '9px 12px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.panelBg }}>
+                                                                        <div style={{ fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{f.label}</div>
+                                                                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.85rem', color: n ? scoreColor(n) : T.textFaint, letterSpacing: '0.1em' }}>
+                                                                            {'●'.repeat(n)}<span style={{ color: T.textFaint }}>{'○'.repeat(5 - n)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Mistakes */}
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                                                            {(rv.mistakes || []).map(m => {
+                                                                const isNone = m === REVIEW_NONE_TAG;
+                                                                return (
+                                                                    <span key={m} style={{ fontFamily: sans, fontSize: '0.74rem', fontWeight: '600', padding: '3px 11px', borderRadius: '20px',
+                                                                        color: isNone ? T.green : T.red, background: isNone ? T.greenBg : T.redBg, border: `1px solid ${isNone ? T.green : T.red}` }}>
+                                                                        {m}
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Planned vs realized */}
+                                                        {rv.plannedStop != null && (
+                                                            <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden', marginBottom: '14px' }}>
+                                                                {[
+                                                                    { label: 'Planned R',  value: fmtR(plannedR).replace('+', ''), color: T.textPrimary },
+                                                                    { label: 'Realized R', value: fmtR(realizedR), color: realizedR == null ? T.textFaint : realizedR >= 0 ? T.green : T.red },
+                                                                    { label: 'Exec gap',   value: fmtR(execGap),   color: execGap == null ? T.textFaint : execGap >= 0 ? T.green : T.red },
+                                                                ].map((s, i, arr) => (
+                                                                    <div key={s.label} style={{ flex: 1, padding: '9px 12px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.panelBg }}>
+                                                                        <div style={{ fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{s.label}</div>
+                                                                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.85rem', fontWeight: '500', color: s.color, whiteSpace: 'nowrap' }}>{s.value}</div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Reflection */}
+                                                        {textBlocks.map(b => (
+                                                            <div key={b.label} style={{ marginBottom: '12px' }}>
+                                                                <div style={subLabel}>{b.label}</div>
+                                                                <div style={{ fontFamily: sans, fontSize: '0.9rem', color: T.textSecondary, lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{b.text}</div>
+                                                            </div>
+                                                        ))}
+                                                        {rv.rule && (
+                                                            <div style={{ borderLeft: `2px solid ${T.green}`, paddingLeft: '12px', marginTop: '4px' }}>
+                                                                <div style={subLabel}>Rule for next time</div>
+                                                                <div style={{ fontFamily: sans, fontSize: '0.92rem', fontWeight: '600', color: T.textPrimary, lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{rv.rule}</div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {/* Notes */}
                                             <div style={{ marginBottom: '22px' }}>
