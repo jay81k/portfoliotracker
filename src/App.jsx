@@ -618,7 +618,7 @@ export default function PortfolioTracker() {
                 }
             }, [trades]);
 
-            const PROXY = 'https://yahoo-proxy.jay69k.workers.dev';
+            const PROXY = 'https://portfolio-yahoo-proxy.jay69k.workers.dev';
 
             const fetchPriceForSymbol = async (symbol) => {
                 try {
