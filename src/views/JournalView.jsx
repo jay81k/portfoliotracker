@@ -1,7 +1,7 @@
 // Journal tab — moved out of App.jsx.
 
 import React, { useState, useEffect, useRef } from 'react';
-import { CameraIcon, ClipboardIcon, X } from '../components/icons';
+import { CameraIcon, CheckCircleIcon, ClipboardIcon, LightbulbIcon, X, XCircleIcon } from '../components/icons';
 import { PROXY } from '../utils/config';
 import { AFTER_EXIT_MARKS, REVIEW_EXIT_REASONS, REVIEW_MISTAKES, REVIEW_NONE_TAG, REVIEW_SCALE, REVIEW_SCORE_FIELDS, afterExitKey, computeAfterExit, fmtAfterExitPct, planText, reviewScoreOnScale } from '../utils/journalReview';
 import { uploadToImgbb } from '../utils/storage';
@@ -580,6 +580,18 @@ export default function JournalView(props) {
                                     const scoreColor = (n) => n >= 8 ? T.green : n >= 5 ? T.amber : T.red;
                                     const scoreBg = (n) => n >= 8 ? T.greenBg : n >= 5 ? T.amberBg : T.redBg;
 
+                                    // Reflection columns: shared by the editor and the saved view
+                                    const reflectionFields = [
+                                        { field: 'right', label: 'What went right', Icon: CheckCircleIcon, color: T.green, id: `jr-right-${t.id}`,
+                                          ph: 'Entered at my planned level and held through the first pullback...' },
+                                        { field: 'wrong', label: 'What went wrong', Icon: XCircleIcon, color: T.red, id: `jr-wrong-${t.id}`,
+                                          ph: 'Bought above my entry, then sold on a normal intraday dip...' },
+                                        { field: 'rule', label: 'Key Lesson', Icon: LightbulbIcon, color: T.amber, id: `jr-rule-${t.id}`,
+                                          ph: 'Next time: place a limit order at my level instead of buying at market...' },
+                                    ];
+                                    const reflectionTitle = { display: 'flex', alignItems: 'center', gap: '8px', fontFamily: sans, fontSize: '0.78rem', fontWeight: '800', color: T.textPrimary, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' };
+                                    const reflectionBox = { border: `1px solid ${T.border}`, borderRadius: '12px', background: T.panelBg, padding: '12px 14px', boxSizing: 'border-box' };
+
                                     // ── Open trade: locked ──
                                     if (isOpen) {
                                         return (
@@ -718,13 +730,15 @@ export default function JournalView(props) {
                                                 </div>
 
                                                 {/* Reflection */}
-                                                <div style={subLabel}>What went right</div>
-                                                <textarea id={`jr-right-${t.id}`} defaultValue={rv?.right || ''} rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: '12px' }} />
-                                                <div style={subLabel}>What went wrong</div>
-                                                <textarea id={`jr-wrong-${t.id}`} defaultValue={rv?.wrong || ''} rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: '12px' }} />
-                                                <div style={subLabel}>Key Lesson</div>
-                                                <textarea id={`jr-rule-${t.id}`} defaultValue={rv?.rule || ''} rows={2}
-                                                    style={{ ...inputStyle, resize: 'vertical', marginBottom: '14px' }} />
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+                                                    {reflectionFields.map(f => (
+                                                        <div key={f.field} style={{ flex: '1 1 190px', minWidth: 0 }}>
+                                                            <div style={reflectionTitle}><f.Icon size={16} color={f.color} />{f.label}</div>
+                                                            <textarea id={f.id} defaultValue={rv?.[f.field] || ''} rows={4} placeholder={f.ph}
+                                                                style={{ ...inputStyle, ...reflectionBox, display: 'block', resize: 'vertical', fontSize: '0.86rem', lineHeight: '1.55' }} />
+                                                        </div>
+                                                    ))}
+                                                </div>
 
                                                 <div style={{ display: 'flex', gap: '8px' }}>
                                                     <button onClick={handleSaveReview} style={primaryBtn}>Save review</button>
@@ -738,10 +752,6 @@ export default function JournalView(props) {
                                     const scoreOf = (f) => reviewScoreOnScale(rv, rv.scores?.[f.key]);
                                     const scoreVals = REVIEW_SCORE_FIELDS.map(scoreOf).filter(n => n != null);
                                     const avgScore = scoreVals.length ? scoreVals.reduce((s, n) => s + n, 0) / scoreVals.length : null;
-                                    const textBlocks = [
-                                        { label: 'What went right', text: rv.right },
-                                        { label: 'What went wrong', text: rv.wrong },
-                                    ].filter(b => b.text);
                                     return (
                                         <div style={{ ...cardStyle, marginBottom: '22px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
@@ -892,16 +902,18 @@ export default function JournalView(props) {
                                             })()}
 
                                             {/* Reflection */}
-                                            {textBlocks.map(b => (
-                                                <div key={b.label} style={{ marginBottom: '12px' }}>
-                                                    <div style={subLabel}>{b.label}</div>
-                                                    <div style={{ fontFamily: sans, fontSize: '0.9rem', color: T.textSecondary, lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{b.text}</div>
-                                                </div>
-                                            ))}
-                                            {rv.rule && (
-                                                <div style={{ borderLeft: `2px solid ${T.green}`, paddingLeft: '12px', marginTop: '4px' }}>
-                                                    <div style={subLabel}>Key Lesson</div>
-                                                    <div style={{ fontFamily: sans, fontSize: '0.92rem', fontWeight: '600', color: T.textPrimary, lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{rv.rule}</div>
+                                            {reflectionFields.some(f => rv[f.field]) && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                                                    {reflectionFields.map(f => (
+                                                        <div key={f.field} style={{ flex: '1 1 190px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                                                            <div style={reflectionTitle}><f.Icon size={16} color={f.color} />{f.label}</div>
+                                                            <div style={{ ...reflectionBox, flex: 1, fontFamily: sans, fontSize: '0.86rem', lineHeight: '1.6', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+                                                                color: rv[f.field] ? (f.field === 'rule' ? T.textPrimary : T.textSecondary) : T.textFaint,
+                                                                fontWeight: f.field === 'rule' && rv[f.field] ? '600' : '400' }}>
+                                                                {rv[f.field] || '—'}
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>
