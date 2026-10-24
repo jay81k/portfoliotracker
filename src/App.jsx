@@ -113,6 +113,8 @@ const REVIEW_MISTAKES = [
 ];
 const REVIEW_NONE_TAG = 'None (clean execution)';
 const REVIEW_SCALE = 10;
+// plannedStop / plannedTarget are free text now. Reviews saved earlier stored numbers (prices): show them as "$x".
+const planText = (v) => v == null || v === '' ? '' : typeof v === 'number' ? `$${v}` : String(v);
 // Reviews saved before the 10-point scale have no `scale` field and hold 1-5 scores: double them on read.
 const reviewScoreOnScale = (review, n) => n == null ? null : (review && review.scale === REVIEW_SCALE ? n : n * 2);
 
@@ -7319,11 +7321,6 @@ export default function PortfolioTracker() {
                                                         const base = prev.mistakes.filter(x => x !== REVIEW_NONE_TAG);
                                                         return { ...prev, mistakes: has ? base.filter(x => x !== m) : [...base, m] };
                                                     });
-                                                    const readNum = (id) => {
-                                                        const raw = document.getElementById(id)?.value;
-                                                        const n = parseFloat(raw);
-                                                        return raw !== '' && raw != null && !isNaN(n) ? n : null;
-                                                    };
                                                     const readText = (id) => (document.getElementById(id)?.value || '').trim();
                                                     const handleSaveReview = async () => {
                                                         const missing = REVIEW_SCORE_FIELDS.filter(f => !d.scores[f.key]);
@@ -7335,17 +7332,8 @@ export default function PortfolioTracker() {
                                                             showToast('warning', 'Incomplete Review', 'Pick at least one mistake tag, or "None (clean execution)".');
                                                             return;
                                                         }
-                                                        const plannedStop = readNum(`jr-stop-${t.id}`);
-                                                        const plannedTarget = readNum(`jr-target-${t.id}`);
-                                                        const isShort = t.direction === 'short';
-                                                        if (plannedStop != null && (isShort ? plannedStop <= t.entryPrice : plannedStop >= t.entryPrice)) {
-                                                            showToast('warning', 'Check Planned Stop', `A ${isShort ? 'short' : 'long'} stop must be ${isShort ? 'above' : 'below'} the entry price.`);
-                                                            return;
-                                                        }
-                                                        if (plannedTarget != null && (isShort ? plannedTarget >= t.entryPrice : plannedTarget <= t.entryPrice)) {
-                                                            showToast('warning', 'Check Planned Target', `A ${isShort ? 'short' : 'long'} target must be ${isShort ? 'below' : 'above'} the entry price.`);
-                                                            return;
-                                                        }
+                                                        const plannedStop = readText(`jr-stop-${t.id}`) || null;
+                                                        const plannedTarget = readText(`jr-target-${t.id}`) || null;
                                                         const review = {
                                                             scores: { ...d.scores },
                                                             scale: REVIEW_SCALE,
@@ -7409,13 +7397,19 @@ export default function PortfolioTracker() {
                                                                 })}
                                                             </div>
 
-                                                            {/* Planned levels */}
-                                                            <div style={subLabel}>Planned levels <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: '500', color: T.textFaint }}>(optional, enables planned vs realized R)</span></div>
-                                                            <div style={{ display: 'flex', gap: '10px', marginBottom: '18px' }}>
-                                                                <input id={`jr-stop-${t.id}`} type="number" step="any" defaultValue={rv?.plannedStop ?? ''} placeholder="Planned stop $"
-                                                                    style={{ ...inputStyle, width: '160px', fontFamily: "'DM Mono', monospace", fontSize: '0.82rem' }} />
-                                                                <input id={`jr-target-${t.id}`} type="number" step="any" defaultValue={rv?.plannedTarget ?? ''} placeholder="Planned target $"
-                                                                    style={{ ...inputStyle, width: '160px', fontFamily: "'DM Mono', monospace", fontSize: '0.82rem' }} />
+                                                            {/* Plan */}
+                                                            <div style={subLabel}>Plan <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: '500', color: T.textFaint }}>(optional: a price, an R multiple, a moving average, any condition)</span></div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '18px' }}>
+                                                                {[
+                                                                    { id: `jr-stop-${t.id}`,   label: 'Planned stop', val: rv?.plannedStop,   ph: 'e.g. $47.50 or below 50 MA' },
+                                                                    { id: `jr-target-${t.id}`, label: 'Planned exit', val: rv?.plannedTarget, ph: 'e.g. 3R, $62, or 20 EMA cross' },
+                                                                ].map(f => (
+                                                                    <div key={f.id} style={{ flex: '1 1 220px', minWidth: 0 }}>
+                                                                        <div style={{ fontFamily: sans, fontSize: '0.7rem', color: T.textMuted, marginBottom: '4px' }}>{f.label}</div>
+                                                                        <input id={f.id} type="text" defaultValue={planText(f.val)} placeholder={f.ph}
+                                                                            style={{ ...inputStyle, fontSize: '0.82rem', textOverflow: 'ellipsis' }} />
+                                                                    </div>
+                                                                ))}
                                                             </div>
 
                                                             {/* Reflection */}
@@ -7423,8 +7417,8 @@ export default function PortfolioTracker() {
                                                             <textarea id={`jr-right-${t.id}`} defaultValue={rv?.right || ''} rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: '12px' }} />
                                                             <div style={subLabel}>What went wrong</div>
                                                             <textarea id={`jr-wrong-${t.id}`} defaultValue={rv?.wrong || ''} rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: '12px' }} />
-                                                            <div style={subLabel}>Rule for next time</div>
-                                                            <textarea id={`jr-rule-${t.id}`} defaultValue={rv?.rule || ''} rows={2} placeholder="One specific, testable change. Not 'be more patient'."
+                                                            <div style={subLabel}>Key Lesson</div>
+                                                            <textarea id={`jr-rule-${t.id}`} defaultValue={rv?.rule || ''} rows={2}
                                                                 style={{ ...inputStyle, resize: 'vertical', marginBottom: '14px' }} />
 
                                                             <div style={{ display: 'flex', gap: '8px' }}>
@@ -7439,12 +7433,6 @@ export default function PortfolioTracker() {
                                                 const scoreOf = (f) => reviewScoreOnScale(rv, rv.scores?.[f.key]);
                                                 const scoreVals = REVIEW_SCORE_FIELDS.map(scoreOf).filter(n => n != null);
                                                 const avgScore = scoreVals.length ? scoreVals.reduce((s, n) => s + n, 0) / scoreVals.length : null;
-                                                const riskPerShare = rv.plannedStop != null ? Math.abs(t.entryPrice - rv.plannedStop) : null;
-                                                const qtyBasis = t.originalQty || t.qty;
-                                                const plannedR = riskPerShare != null && riskPerShare > 0 && rv.plannedTarget != null ? Math.abs(rv.plannedTarget - t.entryPrice) / riskPerShare : null;
-                                                const realizedR = riskPerShare != null && riskPerShare > 0 && profit != null && qtyBasis > 0 ? profit / (riskPerShare * qtyBasis) : null;
-                                                const execGap = plannedR != null && realizedR != null ? realizedR - plannedR : null;
-                                                const fmtR = (r) => r == null ? '—' : `${r >= 0 ? '+' : ''}${r.toFixed(2)}R`;
                                                 const textBlocks = [
                                                     { label: 'What went right', text: rv.right },
                                                     { label: 'What went wrong', text: rv.wrong },
@@ -7500,17 +7488,16 @@ export default function PortfolioTracker() {
                                                             })}
                                                         </div>
 
-                                                        {/* Planned vs realized */}
-                                                        {rv.plannedStop != null && (
+                                                        {/* Plan */}
+                                                        {(planText(rv.plannedStop) || planText(rv.plannedTarget)) && (
                                                             <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden', marginBottom: '14px' }}>
                                                                 {[
-                                                                    { label: 'Planned R',  value: fmtR(plannedR).replace('+', ''), color: T.textPrimary },
-                                                                    { label: 'Realized R', value: fmtR(realizedR), color: realizedR == null ? T.textFaint : realizedR >= 0 ? T.green : T.red },
-                                                                    { label: 'Exec gap',   value: fmtR(execGap),   color: execGap == null ? T.textFaint : execGap >= 0 ? T.green : T.red },
-                                                                ].map((s, i, arr) => (
-                                                                    <div key={s.label} style={{ flex: 1, padding: '9px 12px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.panelBg }}>
-                                                                        <div style={{ fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{s.label}</div>
-                                                                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.85rem', fontWeight: '500', color: s.color, whiteSpace: 'nowrap' }}>{s.value}</div>
+                                                                    { label: 'Planned stop', text: planText(rv.plannedStop) },
+                                                                    { label: 'Planned exit', text: planText(rv.plannedTarget) },
+                                                                ].filter(c => c.text).map((c, i, arr) => (
+                                                                    <div key={c.label} style={{ flex: 1, minWidth: 0, padding: '9px 12px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.panelBg }}>
+                                                                        <div style={{ fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{c.label}</div>
+                                                                        <div style={{ fontFamily: sans, fontSize: '0.88rem', color: T.textSecondary, lineHeight: '1.5', overflowWrap: 'anywhere' }}>{c.text}</div>
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -7580,7 +7567,7 @@ export default function PortfolioTracker() {
                                                         ))}
                                                         {rv.rule && (
                                                             <div style={{ borderLeft: `2px solid ${T.green}`, paddingLeft: '12px', marginTop: '4px' }}>
-                                                                <div style={subLabel}>Rule for next time</div>
+                                                                <div style={subLabel}>Key Lesson</div>
                                                                 <div style={{ fontFamily: sans, fontSize: '0.92rem', fontWeight: '600', color: T.textPrimary, lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{rv.rule}</div>
                                                             </div>
                                                         )}
