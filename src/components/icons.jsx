@@ -55,3 +55,24 @@ export const ClipboardIcon = ({ size = 16 }) => (
         <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
     </svg>
 );
+
+// Filled status icons for the post-trade review reflection headers. `color` sets the fill.
+export const CheckCircleIcon = ({ size = 16, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="11" fill={color}/>
+        <polyline points="7 12.5 10.5 16 17 8.5" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+);
+export const XCircleIcon = ({ size = 16, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="11" fill={color}/>
+        <line x1="8" y1="8" x2="16" y2="16" stroke="#fff" strokeWidth="2.6" strokeLinecap="round"/>
+        <line x1="16" y1="8" x2="8" y2="16" stroke="#fff" strokeWidth="2.6" strokeLinecap="round"/>
+    </svg>
+);
+export const LightbulbIcon = ({ size = 16, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 2a7 7 0 0 0-4 12.7c.7.5 1 1.2 1 2V18h6v-1.3c0-.8.3-1.5 1-2A7 7 0 0 0 12 2z" fill={color}/>
+        <path d="M9.5 21h5" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+);
