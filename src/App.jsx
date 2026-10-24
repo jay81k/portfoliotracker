@@ -7550,10 +7550,21 @@ export default function PortfolioTracker() {
                                                             const hasMarks = AFTER_EXIT_MARKS.some(n => marks[n] != null);
                                                             const split = !final && !!(liveData && liveData.splitSuspect);
                                                             const pctColor = (v) => v == null ? T.textFaint : v > 0 ? T.amber : v < 0 ? T.green : T.textPrimary;
+                                                            const lastMark = AFTER_EXIT_MARKS[AFTER_EXIT_MARKS.length - 1];
+                                                            const stillUpdating = complete ? '' : ` Still updating until ${lastMark} trading days have passed.`;
                                                             const cells = [
-                                                                ...AFTER_EXIT_MARKS.map(n => ({ label: `${n} days`, v: marks[n] })),
-                                                                { label: complete ? 'Best after' : 'Best so far',   v: srcData ? srcData.best  : null },
-                                                                { label: complete ? 'Worst after' : 'Worst so far', v: srcData ? srcData.worst : null },
+                                                                ...AFTER_EXIT_MARKS.map(n => ({
+                                                                    label: `${n} days`, v: marks[n],
+                                                                    tip: `Price move at the close of the ${n}th trading day after your final exit, measured from your exit price. + means the price kept going your way after you sold. \u2212 means it went against you, so the exit saved you from that.`,
+                                                                })),
+                                                                {
+                                                                    label: complete ? 'Best after' : 'Best so far', v: srcData ? srcData.best : null,
+                                                                    tip: `The furthest the price ran in your direction at any point in the ${lastMark} trading days after your exit (intraday highs for longs, lows for shorts). It's a hindsight ceiling, not a realistic target. Nobody sells the exact top.${stillUpdating}`,
+                                                                },
+                                                                {
+                                                                    label: complete ? 'Worst after' : 'Worst so far', v: srcData ? srcData.worst : null,
+                                                                    tip: `The furthest the price moved against your direction at any point in those ${lastMark} days (intraday lows for longs, highs for shorts). It shows the worst dip you would have sat through had you held on.${stillUpdating}`,
+                                                                },
                                                             ];
                                                             let status = null;
                                                             if (!final && !hasMarks) {
@@ -7575,11 +7586,12 @@ export default function PortfolioTracker() {
                                                                     )}
                                                                     {status === null && (
                                                                         <>
-                                                                            <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden' }}>
+                                                                            <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '6px' }}>
                                                                                 {cells.map((c, i, arr) => (
-                                                                                    <div key={c.label} style={{ flex: 1, padding: '9px 12px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.panelBg }}>
+                                                                                    <div key={c.label} className="ae-cell" style={{ flex: 1, padding: '9px 12px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.panelBg, borderRadius: i === 0 ? '5px 0 0 5px' : i === arr.length - 1 ? '0 5px 5px 0' : 0 }}>
                                                                                         <div style={{ fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{c.label}</div>
                                                                                         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.85rem', fontWeight: '500', color: pctColor(c.v), whiteSpace: 'nowrap' }}>{fmtAfterExitPct(c.v) || (c.label.includes('days') ? 'pending' : '—')}</div>
+                                                                                        <div className="ae-tip" style={{ position: 'absolute', top: 'calc(100% + 6px)', ...(i >= arr.length - 2 ? { right: 0 } : { left: 0 }), width: '260px', background: isDark ? '#111' : '#fff', border: `1px solid ${T.borderStrong}`, borderRadius: '8px', padding: '9px 12px', fontFamily: sans, fontSize: '0.72rem', fontWeight: '400', textTransform: 'none', letterSpacing: 0, lineHeight: 1.5, color: T.textSecondary, whiteSpace: 'normal', pointerEvents: 'none', zIndex: 200, boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.7)' : '0 8px 32px rgba(0,0,0,0.15)', opacity: 0, transition: 'opacity 0.15s' }}>{c.tip}</div>
                                                                                     </div>
                                                                                 ))}
                                                                             </div>
