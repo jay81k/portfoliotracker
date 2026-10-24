@@ -26,7 +26,7 @@ export const REVIEW_EXIT_REASONS = [
     'Time Stop / Stagnant Capital',
     'Protecting Profit (Fear of Giveback)',
     'Panic / Impulsive Exit',
-    'Breakeven Exit (Was Down, Got Even)',
+    'Breakeven Exit (Was Down)',
 ];
 export const REVIEW_SCALE = 10;
 // plannedStop / plannedTarget are free text now. Reviews saved earlier stored numbers (prices): show them as "$x".
