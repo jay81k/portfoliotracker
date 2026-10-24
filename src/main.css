@@ -9,4 +9,6 @@
         .dash-btn-outline:hover { background: rgba(255,255,255,0.12) !important; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
         body.light-mode .dash-btn-outline:hover { background: rgba(0,0,0,0.08) !important; }
         .perf-score-tip-wrap:hover .perf-score-tip { opacity: 1 !important; }
+        .ae-cell { position: relative; }
+        .ae-cell:hover .ae-tip { opacity: 1 !important; }
 
