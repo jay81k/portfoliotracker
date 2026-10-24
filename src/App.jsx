@@ -112,6 +112,14 @@ const REVIEW_MISTAKES = [
     'No plan',
 ];
 const REVIEW_NONE_TAG = 'None (clean execution)';
+const REVIEW_EXIT_REASONS = [
+    'Trailing Stop Hit',
+    'Hard Stop Hit (Initial Risk)',
+    'Thesis Invalidated (Price Action)',
+    'Sold at My Profit Target',
+    'Time Stop / Stagnant Capital',
+    'Panic / Impulsive Exit',
+];
 const REVIEW_SCALE = 10;
 // plannedStop / plannedTarget are free text now. Reviews saved earlier stored numbers (prices): show them as "$x".
 const planText = (v) => v == null || v === '' ? '' : typeof v === 'number' ? `$${v}` : String(v);
@@ -267,7 +275,7 @@ export default function PortfolioTracker() {
             const [journalActivityExpanded, setJournalActivityExpanded] = useState(false);
             const [journalNeedsReview, setJournalNeedsReview] = useState(false);
             const [journalReviewEditing, setJournalReviewEditing] = useState(null); // trade id being reviewed
-            const [journalReviewDraft, setJournalReviewDraft] = useState({ scores: {}, mistakes: [] });
+            const [journalReviewDraft, setJournalReviewDraft] = useState({ scores: {}, mistakes: [], exitReason: null });
             const journalActiveTradeRef = useRef(null);   // trade currently shown in the journal detail panel
             const afterExitCacheRef = useRef({});          // key -> { status, data, at } for after-exit lookups
             const [, setAfterExitTick] = useState(0);      // forces a re-render when a lookup finishes
@@ -7304,7 +7312,7 @@ export default function PortfolioTracker() {
                                                                 <div style={{ marginTop: '6px', fontSize: '0.8rem', color: T.textMuted }}>Not reviewed yet. Grade your process, not the P&amp;L.</div>
                                                             </div>
                                                             <button
-                                                                onClick={() => { setJournalReviewDraft({ scores: {}, mistakes: [] }); setJournalReviewEditing(t.id); }}
+                                                                onClick={() => { setJournalReviewDraft({ scores: {}, mistakes: [], exitReason: null }); setJournalReviewEditing(t.id); }}
                                                                 style={{ ...primaryBtn, flexShrink: 0 }}>
                                                                 Start review
                                                             </button>
@@ -7323,20 +7331,12 @@ export default function PortfolioTracker() {
                                                     });
                                                     const readText = (id) => (document.getElementById(id)?.value || '').trim();
                                                     const handleSaveReview = async () => {
-                                                        const missing = REVIEW_SCORE_FIELDS.filter(f => !d.scores[f.key]);
-                                                        if (missing.length > 0) {
-                                                            showToast('warning', 'Incomplete Review', `Rate ${missing.map(f => f.label.toLowerCase()).join(', ')} before saving.`);
-                                                            return;
-                                                        }
-                                                        if (d.mistakes.length === 0) {
-                                                            showToast('warning', 'Incomplete Review', 'Pick at least one mistake tag, or "None (clean execution)".');
-                                                            return;
-                                                        }
                                                         const plannedStop = readText(`jr-stop-${t.id}`) || null;
                                                         const plannedTarget = readText(`jr-target-${t.id}`) || null;
                                                         const review = {
                                                             scores: { ...d.scores },
                                                             scale: REVIEW_SCALE,
+                                                            exitReason: d.exitReason || null,
                                                             mistakes: [...d.mistakes],
                                                             plannedStop,
                                                             plannedTarget,
@@ -7376,6 +7376,24 @@ export default function PortfolioTracker() {
                                                                         </div>
                                                                     </div>
                                                                 ))}
+                                                            </div>
+
+                                                            {/* Exit reason */}
+                                                            <div style={subLabel}>Exit reason</div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '18px' }}>
+                                                                {REVIEW_EXIT_REASONS.map(r => {
+                                                                    const sel = d.exitReason === r;
+                                                                    return (
+                                                                        <span key={r}
+                                                                            onClick={() => setJournalReviewDraft(prev => ({ ...prev, exitReason: prev.exitReason === r ? null : r }))}
+                                                                            style={{ fontFamily: sans, fontSize: '0.76rem', fontWeight: '600', cursor: 'pointer', padding: '4px 12px', borderRadius: '20px', userSelect: 'none',
+                                                                                color: sel ? T.blue : T.textSecondary,
+                                                                                background: sel ? T.blueBg : 'transparent',
+                                                                                border: `1px solid ${sel ? T.blue : T.border}` }}>
+                                                                            {r}
+                                                                        </span>
+                                                                    );
+                                                                })}
                                                             </div>
 
                                                             {/* Mistake tags */}
@@ -7443,7 +7461,7 @@ export default function PortfolioTracker() {
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                 <div style={labelStyle}>Post-Trade Review</div>
                                                                 <button
-                                                                    onClick={() => { setJournalReviewDraft({ scores: Object.fromEntries(Object.entries(rv.scores || {}).map(([k, v]) => [k, reviewScoreOnScale(rv, v)])), mistakes: [...(rv.mistakes || [])] }); setJournalReviewEditing(t.id); }}
+                                                                    onClick={() => { setJournalReviewDraft({ scores: Object.fromEntries(Object.entries(rv.scores || {}).map(([k, v]) => [k, reviewScoreOnScale(rv, v)])), mistakes: [...(rv.mistakes || [])], exitReason: rv.exitReason || null }); setJournalReviewEditing(t.id); }}
                                                                     title="Edit review"
                                                                     style={{ background: 'transparent', border: 'none', padding: '1px 3px', cursor: 'pointer', color: T.textMuted, lineHeight: 1, transition: 'color 0.12s', fontSize: '0.85rem' }}
                                                                     onMouseEnter={e => e.currentTarget.style.color = T.green}
@@ -7475,18 +7493,31 @@ export default function PortfolioTracker() {
                                                             })}
                                                         </div>
 
+                                                        {/* Exit reason */}
+                                                        {rv.exitReason && (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                                                <span style={{ fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Exit reason</span>
+                                                                <span style={{ fontFamily: sans, fontSize: '0.74rem', fontWeight: '600', padding: '3px 11px', borderRadius: '20px',
+                                                                    color: T.blue, background: T.blueBg, border: `1px solid ${T.blue}` }}>
+                                                                    {rv.exitReason}
+                                                                </span>
+                                                            </div>
+                                                        )}
+
                                                         {/* Mistakes */}
-                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
-                                                            {(rv.mistakes || []).map(m => {
-                                                                const isNone = m === REVIEW_NONE_TAG;
-                                                                return (
-                                                                    <span key={m} style={{ fontFamily: sans, fontSize: '0.74rem', fontWeight: '600', padding: '3px 11px', borderRadius: '20px',
-                                                                        color: isNone ? T.green : T.red, background: isNone ? T.greenBg : T.redBg, border: `1px solid ${isNone ? T.green : T.red}` }}>
-                                                                        {m}
-                                                                    </span>
-                                                                );
-                                                            })}
-                                                        </div>
+                                                        {(rv.mistakes || []).length > 0 && (
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                                                                {(rv.mistakes || []).map(m => {
+                                                                    const isNone = m === REVIEW_NONE_TAG;
+                                                                    return (
+                                                                        <span key={m} style={{ fontFamily: sans, fontSize: '0.74rem', fontWeight: '600', padding: '3px 11px', borderRadius: '20px',
+                                                                            color: isNone ? T.green : T.red, background: isNone ? T.greenBg : T.redBg, border: `1px solid ${isNone ? T.green : T.red}` }}>
+                                                                            {m}
+                                                                        </span>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
 
                                                         {/* Plan */}
                                                         {(planText(rv.plannedStop) || planText(rv.plannedTarget)) && (
