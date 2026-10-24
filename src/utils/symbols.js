@@ -1,0 +1,30 @@
+// Instant local ticker -> company name lookup — moved out of App.jsx unchanged.
+
+export const KNOWN_SYMBOLS = {
+    'AAPL': 'Apple Inc', 'MSFT': 'Microsoft Corp', 'GOOGL': 'Alphabet Inc', 'GOOG': 'Alphabet Inc',
+    'AMZN': 'Amazon.com Inc', 'META': 'Meta Platforms Inc', 'TSLA': 'Tesla Inc',
+    'NVDA': 'NVIDIA Corp', 'BRK.B': 'Berkshire Hathaway Inc', 'BRK.A': 'Berkshire Hathaway Inc',
+    'JPM': 'JPMorgan Chase & Co', 'V': 'Visa Inc', 'JNJ': 'Johnson & Johnson',
+    'WMT': 'Walmart Inc', 'PG': 'Procter & Gamble Co', 'MA': 'Mastercard Inc',
+    'HD': 'Home Depot Inc', 'DIS': 'Walt Disney Co', 'BAC': 'Bank of America Corp',
+    'ADBE': 'Adobe Inc', 'NFLX': 'Netflix Inc', 'CRM': 'Salesforce Inc',
+    'AMD': 'Advanced Micro Devices', 'INTC': 'Intel Corp', 'QCOM': 'Qualcomm Inc',
+    'PYPL': 'PayPal Holdings Inc', 'SHOP': 'Shopify Inc', 'SQ': 'Block Inc',
+    'COIN': 'Coinbase Global Inc', 'PLTR': 'Palantir Technologies',
+    'SPY': 'SPDR S&P 500 ETF', 'QQQ': 'Invesco QQQ Trust', 'IWM': 'iShares Russell 2000 ETF',
+    'VTI': 'Vanguard Total Stock Market ETF', 'VOO': 'Vanguard S&P 500 ETF',
+    'JPST': 'JPM Ultra-Short Income ETF', 'ARKK': 'ARK Innovation ETF',
+    'GLD': 'SPDR Gold Shares', 'SLV': 'iShares Silver Trust',
+    'XLF': 'Financial Select Sector SPDR', 'XLE': 'Energy Select Sector SPDR',
+    // Canadian symbols
+    'CASH.TO': 'GX High Interest Savings ETF', 'BEPC.TO': 'Brookfield Renewable Corp',
+    'BNS.TO': 'Bank of Nova Scotia', 'RY.TO': 'Royal Bank of Canada',
+    'TD.TO': 'Toronto-Dominion Bank', 'ENB.TO': 'Enbridge Inc',
+    'CNQ.TO': 'Canadian Natural Resources', 'CP.TO': 'Canadian Pacific Kansas City',
+    'CNR.TO': 'Canadian National Railway', 'BCE.TO': 'BCE Inc',
+    'T.TO': 'Telus Corp', 'MFC.TO': 'Manulife Financial Corp',
+    'SU.TO': 'Suncor Energy Inc', 'ABX.TO': 'Barrick Gold Corp',
+    'SHOP.TO': 'Shopify Inc', 'BAM.TO': 'Brookfield Asset Management',
+    'ATD.TO': 'Alimentation Couche-Tard', 'WCN.TO': 'Waste Connections Inc',
+    'TRI.TO': 'Thomson Reuters Corp', 'CSU.TO': 'Constellation Software',
+};
