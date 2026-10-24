@@ -7495,29 +7495,21 @@ export default function PortfolioTracker() {
                                                             })}
                                                         </div>
 
-                                                        {/* Exit reason */}
-                                                        {rv.exitReason && (
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                                                <span style={{ fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Exit reason</span>
-                                                                <span style={{ fontFamily: sans, fontSize: '0.74rem', fontWeight: '600', padding: '3px 11px', borderRadius: '20px',
-                                                                    color: T.blue, background: T.blueBg, border: `1px solid ${T.blue}` }}>
-                                                                    {rv.exitReason}
-                                                                </span>
-                                                            </div>
-                                                        )}
-
                                                         {/* Mistakes */}
                                                         {(rv.mistakes || []).length > 0 && (
-                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
-                                                                {(rv.mistakes || []).map(m => {
-                                                                    const isNone = m === REVIEW_NONE_TAG;
-                                                                    return (
-                                                                        <span key={m} style={{ fontFamily: sans, fontSize: '0.74rem', fontWeight: '600', padding: '3px 11px', borderRadius: '20px',
-                                                                            color: isNone ? T.green : T.red, background: isNone ? T.greenBg : T.redBg, border: `1px solid ${isNone ? T.green : T.red}` }}>
-                                                                            {m}
-                                                                        </span>
-                                                                    );
-                                                                })}
+                                                            <div style={{ marginBottom: '14px' }}>
+                                                                <div style={subLabel}>Mistakes</div>
+                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                    {(rv.mistakes || []).map(m => {
+                                                                        const isNone = m === REVIEW_NONE_TAG;
+                                                                        return (
+                                                                            <span key={m} style={{ fontFamily: sans, fontSize: '0.74rem', fontWeight: '600', padding: '3px 11px', borderRadius: '20px',
+                                                                                color: isNone ? T.green : T.red, background: isNone ? T.greenBg : T.redBg, border: `1px solid ${isNone ? T.green : T.red}` }}>
+                                                                                {m}
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
                                                             </div>
                                                         )}
 
@@ -7533,6 +7525,17 @@ export default function PortfolioTracker() {
                                                                         <div style={{ fontFamily: sans, fontSize: '0.88rem', color: T.textSecondary, lineHeight: '1.5', overflowWrap: 'anywhere' }}>{c.text}</div>
                                                                     </div>
                                                                 ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Exit reason — sits directly above After exit */}
+                                                        {rv.exitReason && (
+                                                            <div style={{ marginBottom: '10px' }}>
+                                                                <div style={subLabel}>Exit reason</div>
+                                                                <span style={{ display: 'inline-block', fontFamily: sans, fontSize: '0.74rem', fontWeight: '600', padding: '3px 11px', borderRadius: '20px',
+                                                                    color: T.blue, background: T.blueBg, border: `1px solid ${T.blue}` }}>
+                                                                    {rv.exitReason}
+                                                                </span>
                                                             </div>
                                                         )}
 
@@ -7574,7 +7577,7 @@ export default function PortfolioTracker() {
                                                             }
                                                             return (
                                                                 <div style={{ marginBottom: '14px' }}>
-                                                                    <div style={subLabel}>After exit <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: '500', color: T.textFaint }}>(vs your final exit at ${Number(t.exitPrice).toFixed(2)}; + means the price kept moving your trade's way after you left)</span></div>
+                                                                    <div style={subLabel}>After exit <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: '500', color: T.textFaint }}>(vs your final exit at ${Number(t.exitPrice).toFixed(2)})</span></div>
                                                                     {status === 'loading' && <div style={{ fontSize: '0.78rem', color: T.textFaint }}>Loading price history…</div>}
                                                                     {status === 'pending' && <div style={{ fontSize: '0.78rem', color: T.textFaint }}>The first mark appears 5 trading days after your exit.</div>}
                                                                     {status === 'error' && (
