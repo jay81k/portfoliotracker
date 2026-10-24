@@ -582,12 +582,9 @@ export default function JournalView(props) {
 
                                     // Reflection columns: shared by the editor and the saved view
                                     const reflectionFields = [
-                                        { field: 'right', label: 'What went right', Icon: CheckCircleIcon, color: T.green, id: `jr-right-${t.id}`,
-                                          ph: 'Entered at my planned level and held through the first pullback...' },
-                                        { field: 'wrong', label: 'What went wrong', Icon: XCircleIcon, color: T.red, id: `jr-wrong-${t.id}`,
-                                          ph: 'Bought above my entry, then sold on a normal intraday dip...' },
-                                        { field: 'rule', label: 'Key Lesson', Icon: LightbulbIcon, color: T.amber, id: `jr-rule-${t.id}`,
-                                          ph: 'Next time: place a limit order at my level instead of buying at market...' },
+                                        { field: 'right', label: 'What went right', Icon: CheckCircleIcon, color: T.green, id: `jr-right-${t.id}` },
+                                        { field: 'wrong', label: 'What went wrong', Icon: XCircleIcon, color: T.red, id: `jr-wrong-${t.id}` },
+                                        { field: 'rule', label: 'Key Lesson', Icon: LightbulbIcon, color: T.amber, id: `jr-rule-${t.id}` },
                                     ];
                                     const reflectionTitle = { display: 'flex', alignItems: 'center', gap: '8px', fontFamily: sans, fontSize: '0.78rem', fontWeight: '800', color: T.textPrimary, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' };
                                     const reflectionBox = { border: `1px solid ${T.border}`, borderRadius: '12px', background: T.panelBg, padding: '12px 14px', boxSizing: 'border-box' };
@@ -734,7 +731,7 @@ export default function JournalView(props) {
                                                     {reflectionFields.map(f => (
                                                         <div key={f.field} style={{ flex: '1 1 190px', minWidth: 0 }}>
                                                             <div style={reflectionTitle}><f.Icon size={16} color={f.color} />{f.label}</div>
-                                                            <textarea id={f.id} defaultValue={rv?.[f.field] || ''} rows={4} placeholder={f.ph}
+                                                            <textarea id={f.id} defaultValue={rv?.[f.field] || ''} rows={4}
                                                                 style={{ ...inputStyle, ...reflectionBox, display: 'block', resize: 'vertical', fontSize: '0.86rem', lineHeight: '1.55' }} />
                                                         </div>
                                                     ))}
