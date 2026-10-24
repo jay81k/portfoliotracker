@@ -112,6 +112,76 @@ const REVIEW_MISTAKES = [
     'No plan',
 ];
 const REVIEW_NONE_TAG = 'None (clean execution)';
+const REVIEW_SCALE = 10;
+// Reviews saved before the 10-point scale have no `scale` field and hold 1-5 scores: double them on read.
+const reviewScoreOnScale = (review, n) => n == null ? null : (review && review.scale === REVIEW_SCALE ? n : n * 2);
+
+// ── Post-trade review: after-exit marks ──────────────────────────────────
+// Fixed windows after the FINAL exit, not "today's price": over long gaps a
+// current price mostly reflects market drift and survivorship, not exit quality.
+// Sign convention: positive = price kept moving in the trade's original
+// direction after you exited (you left gains); negative = it reversed (you dodged).
+const AFTER_EXIT_MARKS = [5, 20, 60]; // trading days after the final exit
+const afterExitKey = (t) => `${t.id}|${t.exitDate}|${t.exitPrice}|${t.direction === 'short' ? 'short' : 'long'}`;
+const afterExitRange = (days) =>
+    days <= 20 ? '1mo' : days <= 80 ? '3mo' : days <= 170 ? '6mo' : days <= 350 ? '1y'
+    : days <= 710 ? '2y' : days <= 1800 ? '5y' : days <= 3600 ? '10y' : 'max';
+const fmtAfterExitPct = (v) => v == null ? null : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
+
+const computeAfterExit = async (t, proxy) => {
+    const exitPx = t.exitPrice;
+    const isShort = t.direction === 'short';
+    const daysSince = Math.floor((Date.now() - new Date(t.exitDate + 'T00:00:00Z').getTime()) / 86400000);
+    if (!(exitPx > 0) || isNaN(daysSince)) throw new Error('Exit price or date is missing');
+    const emptyMarks = { 5: null, 20: null, 60: null };
+    if (daysSince < 7) return { status: 'pending', marks: emptyMarks, best: null, worst: null, complete: false, splitSuspect: false };
+
+    const resp = await fetch(`${proxy}?symbol=${encodeURIComponent(t.symbol)}&interval=1d&range=${afterExitRange(daysSince + 5)}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+    const res = json?.chart?.result?.[0];
+    const ts = res?.timestamp;
+    const q = res?.indicators?.quote?.[0];
+    if (!ts || !q) throw new Error('No price history returned');
+
+    // Exchange-local dates, so "after the exit" and "today" are judged in the market's own calendar
+    const off = res?.meta?.gmtoffset || 0;
+    const todayLocal = new Date(Date.now() + off * 1000).toISOString().slice(0, 10);
+    const bars = [];
+    for (let i = 0; i < ts.length; i++) {
+        const c = q.close?.[i];
+        if (c == null) continue;
+        bars.push({
+            d: new Date((ts[i] + off) * 1000).toISOString().slice(0, 10),
+            c,
+            h: q.high?.[i] ?? c,
+            l: q.low?.[i] ?? c,
+        });
+    }
+    if (bars.length === 0) throw new Error('No price history returned');
+    // If history starts after the exit, the first "after" bar could be the wrong day
+    if (bars[0].d > t.exitDate) throw new Error('Price history does not reach back to the exit date');
+
+    // Completed sessions only: today's bar may still be forming
+    const after = bars.filter(b => b.d > t.exitDate && b.d < todayLocal);
+    const cont = (p) => isShort ? (exitPx - p) / exitPx : (p - exitPx) / exitPx;
+    const marks = {};
+    AFTER_EXIT_MARKS.forEach(n => { marks[n] = after.length >= n ? cont(after[n - 1].c) : null; });
+    if (after.length < AFTER_EXIT_MARKS[0]) return { status: 'pending', marks, best: null, worst: null, complete: false, splitSuspect: false };
+
+    const win = after.slice(0, AFTER_EXIT_MARKS[AFTER_EXIT_MARKS.length - 1]);
+    const hi = Math.max(...win.map(b => b.h));
+    const lo = Math.min(...win.map(b => b.l));
+    return {
+        status: 'ready',
+        marks,
+        best:  isShort ? cont(lo) : cont(hi),   // furthest the price ran in your direction after you left
+        worst: isShort ? cont(hi) : cont(lo),   // furthest it went against it
+        complete: marks[60] != null,
+        // History is split-adjusted but the recorded exit isn't, so a split makes every number wrong
+        splitSuspect: win.some(b => Math.abs(b.c / exitPx - 1) > 0.5),
+    };
+};
 
 export default function PortfolioTracker() {
             const [trades, setTrades] = useState([]);
@@ -196,6 +266,9 @@ export default function PortfolioTracker() {
             const [journalNeedsReview, setJournalNeedsReview] = useState(false);
             const [journalReviewEditing, setJournalReviewEditing] = useState(null); // trade id being reviewed
             const [journalReviewDraft, setJournalReviewDraft] = useState({ scores: {}, mistakes: [] });
+            const journalActiveTradeRef = useRef(null);   // trade currently shown in the journal detail panel
+            const afterExitCacheRef = useRef({});          // key -> { status, data, at } for after-exit lookups
+            const [, setAfterExitTick] = useState(0);      // forces a re-render when a lookup finishes
             const [sortColumn, setSortColumn] = useState(null);
             const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
             const [searchTerm, setSearchTerm] = useState('');
@@ -888,13 +961,61 @@ export default function PortfolioTracker() {
                     showToast('error', 'Cannot Save Review', "This trade belongs to another portfolio. Switch to that portfolio to review it.");
                     return false;
                 }
-                const updatedTrade = { ...existing, review };
+                const updatedTrade = { ...existing, review: { ...review, ...(existing.review?.afterExit ? { afterExit: existing.review.afterExit } : {}) } };
                 const updated = tradesRef.current.map(t => t.id === tradeId ? updatedTrade : t);
                 await saveTrades(updated);
                 setJournalSelected(updatedTrade);
                 showToast('success', 'Review Saved', 'Post-trade review updated.');
                 return true;
             };
+
+            // Silent save of after-exit marks onto an existing review (no toast). Skips if the exit
+            // changed since the lookup started, or if the trade isn't in the active portfolio.
+            const saveAfterExit = async (tradeId, key, afterExit) => {
+                const existing = tradesRef.current.find(t => t.id === tradeId);
+                if (!existing || !existing.review) return;
+                if (afterExitKey(existing) !== key) return;
+                const prev = existing.review.afterExit;
+                if (prev && prev.key === key && prev.complete) return;
+                const updatedTrade = { ...existing, review: { ...existing.review, afterExit } };
+                await saveTrades(tradesRef.current.map(t => t.id === tradeId ? updatedTrade : t));
+                setJournalSelected(sel => sel && sel.id === tradeId ? updatedTrade : sel);
+            };
+
+            // Runs after each render; exits immediately unless the journal is showing a reviewed,
+            // closed trade whose marks are not final yet. Looked-up results are cached for 10 minutes.
+            useEffect(() => {
+                if (view !== 'journal') return;
+                const t = journalActiveTradeRef.current;
+                if (!t || !t.review || !t.exitDate || !(t.exitPrice > 0)) return;
+                const key = afterExitKey(t);
+                const stored = t.review.afterExit && t.review.afterExit.key === key ? t.review.afterExit : null;
+                if (stored && stored.complete) return;
+                const cached = afterExitCacheRef.current[key];
+                if (cached && (cached.status === 'loading' || Date.now() - cached.at < 10 * 60 * 1000)) return;
+                afterExitCacheRef.current[key] = { status: 'loading', at: Date.now() };
+                setAfterExitTick(n => n + 1);
+                computeAfterExit(t, PROXY).then(async (data) => {
+                    afterExitCacheRef.current[key] = { status: 'ready', data, at: Date.now() };
+                    setAfterExitTick(n => n + 1);
+                    // Persist only marks that have fully elapsed, and never a split-suspect result
+                    if (data.status !== 'ready' || data.splitSuspect) return;
+                    const have = stored ? AFTER_EXIT_MARKS.filter(n => stored.marks?.[n] != null).length : 0;
+                    const now = AFTER_EXIT_MARKS.filter(n => data.marks[n] != null).length;
+                    if (now <= have) return;
+                    await saveAfterExit(t.id, key, {
+                        key,
+                        marks: data.marks,
+                        best:  data.complete ? data.best : null,
+                        worst: data.complete ? data.worst : null,
+                        complete: data.complete,
+                        checkedAt: new Date().toISOString().split('T')[0],
+                    });
+                }).catch((e) => {
+                    afterExitCacheRef.current[key] = { status: 'error', error: e.message, at: Date.now() };
+                    setAfterExitTick(n => n + 1);
+                });
+            });
 
             const saveJournalScreenshot = async (tradeId, file) => {
                 if (!file) return;
@@ -7149,6 +7270,7 @@ export default function PortfolioTracker() {
 
                                             {/* Post-Trade Review */}
                                             {(() => {
+                                                journalActiveTradeRef.current = t;
                                                 const sans = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
                                                 const rv = t.review || null;
                                                 const editing = journalReviewEditing === t.id;
@@ -7158,7 +7280,8 @@ export default function PortfolioTracker() {
                                                 const primaryBtn = { padding: '6px 18px', background: T.green, border: 'none', borderRadius: '5px', color: isDark ? '#000' : '#fff', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' };
                                                 const ghostBtn = { padding: '6px 14px', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', color: T.textSecondary, fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' };
                                                 const inputStyle = { width: '100%', padding: '8px 10px', background: T.panelBg, border: `1px solid ${T.borderMid}`, borderRadius: '6px', color: T.textPrimary, fontFamily: sans, fontSize: '0.88rem', lineHeight: '1.6', outline: 'none', boxSizing: 'border-box' };
-                                                const scoreColor = (n) => n >= 4 ? T.green : n === 3 ? T.amber : T.red;
+                                                const scoreColor = (n) => n >= 8 ? T.green : n >= 5 ? T.amber : T.red;
+                                                const scoreBg = (n) => n >= 8 ? T.greenBg : n >= 5 ? T.amberBg : T.redBg;
 
                                                 // ── Open trade: locked ──
                                                 if (isOpen) {
@@ -7225,6 +7348,7 @@ export default function PortfolioTracker() {
                                                         }
                                                         const review = {
                                                             scores: { ...d.scores },
+                                                            scale: REVIEW_SCALE,
                                                             mistakes: [...d.mistakes],
                                                             plannedStop,
                                                             plannedTarget,
@@ -7239,7 +7363,7 @@ export default function PortfolioTracker() {
                                                     return (
                                                         <div style={{ ...cardStyle, marginBottom: '22px' }}>
                                                             <div style={{ ...labelStyle, marginBottom: '4px' }}>Post-Trade Review</div>
-                                                            <div style={{ fontSize: '0.78rem', color: T.textMuted, marginBottom: '16px' }}>Grade how you executed, not how it turned out. 1 = poor, 5 = textbook.</div>
+                                                            <div style={{ fontSize: '0.78rem', color: T.textMuted, marginBottom: '16px' }}>Grade how you executed, not how it turned out. 1 = poor, 10 = textbook.</div>
 
                                                             {/* Scorecard */}
                                                             <div style={subLabel}>Process scorecard</div>
@@ -7248,14 +7372,14 @@ export default function PortfolioTracker() {
                                                                     <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                                         <span style={{ width: '120px', fontFamily: sans, fontSize: '0.82rem', color: T.textSecondary }}>{f.label}</span>
                                                                         <div style={{ display: 'flex', gap: '4px' }}>
-                                                                            {[1, 2, 3, 4, 5].map(n => {
+                                                                            {Array.from({ length: REVIEW_SCALE }, (_, i) => i + 1).map(n => {
                                                                                 const sel = d.scores[f.key] === n;
                                                                                 return (
                                                                                     <button key={n}
                                                                                         onClick={() => setJournalReviewDraft(prev => ({ ...prev, scores: { ...prev.scores, [f.key]: n } }))}
-                                                                                        style={{ width: '30px', padding: '4px 0', fontSize: '0.78rem', fontWeight: '700', fontFamily: "'DM Mono', monospace", cursor: 'pointer', borderRadius: '4px',
+                                                                                        style={{ width: '28px', padding: '4px 0', fontSize: '0.78rem', fontWeight: '700', fontFamily: "'DM Mono', monospace", cursor: 'pointer', borderRadius: '4px',
                                                                                             border: `1px solid ${sel ? scoreColor(n) : T.border}`,
-                                                                                            background: sel ? (n >= 4 ? T.greenBg : n === 3 ? T.amberBg : T.redBg) : 'transparent',
+                                                                                            background: sel ? scoreBg(n) : 'transparent',
                                                                                             color: sel ? scoreColor(n) : T.textMuted }}>
                                                                                         {n}
                                                                                     </button>
@@ -7312,7 +7436,8 @@ export default function PortfolioTracker() {
                                                 }
 
                                                 // ── Saved review (read-only) ──
-                                                const scoreVals = REVIEW_SCORE_FIELDS.map(f => rv.scores?.[f.key]).filter(n => n != null);
+                                                const scoreOf = (f) => reviewScoreOnScale(rv, rv.scores?.[f.key]);
+                                                const scoreVals = REVIEW_SCORE_FIELDS.map(scoreOf).filter(n => n != null);
                                                 const avgScore = scoreVals.length ? scoreVals.reduce((s, n) => s + n, 0) / scoreVals.length : null;
                                                 const riskPerShare = rv.plannedStop != null ? Math.abs(t.entryPrice - rv.plannedStop) : null;
                                                 const qtyBasis = t.originalQty || t.qty;
@@ -7330,7 +7455,7 @@ export default function PortfolioTracker() {
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                 <div style={labelStyle}>Post-Trade Review</div>
                                                                 <button
-                                                                    onClick={() => { setJournalReviewDraft({ scores: { ...(rv.scores || {}) }, mistakes: [...(rv.mistakes || [])] }); setJournalReviewEditing(t.id); }}
+                                                                    onClick={() => { setJournalReviewDraft({ scores: Object.fromEntries(Object.entries(rv.scores || {}).map(([k, v]) => [k, reviewScoreOnScale(rv, v)])), mistakes: [...(rv.mistakes || [])] }); setJournalReviewEditing(t.id); }}
                                                                     title="Edit review"
                                                                     style={{ background: 'transparent', border: 'none', padding: '1px 3px', cursor: 'pointer', color: T.textMuted, lineHeight: 1, transition: 'color 0.12s', fontSize: '0.85rem' }}
                                                                     onMouseEnter={e => e.currentTarget.style.color = T.green}
@@ -7339,7 +7464,7 @@ export default function PortfolioTracker() {
                                                                 </button>
                                                             </div>
                                                             <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.7rem', color: T.textFaint }}>
-                                                                {avgScore != null && <span style={{ color: scoreColor(Math.round(avgScore)), marginRight: '10px' }}>Process {avgScore.toFixed(1)}/5</span>}
+                                                                {avgScore != null && <span style={{ color: scoreColor(Math.round(avgScore)), marginRight: '10px' }}>Process {avgScore.toFixed(1)}/{REVIEW_SCALE}</span>}
                                                                 Reviewed {rv.reviewedAt}
                                                             </div>
                                                         </div>
@@ -7347,12 +7472,15 @@ export default function PortfolioTracker() {
                                                         {/* Scorecard */}
                                                         <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden', marginBottom: '14px' }}>
                                                             {REVIEW_SCORE_FIELDS.map((f, i, arr) => {
-                                                                const n = rv.scores?.[f.key] || 0;
+                                                                const n = scoreOf(f) || 0;
                                                                 return (
                                                                     <div key={f.key} style={{ flex: 1, padding: '9px 12px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.panelBg }}>
                                                                         <div style={{ fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{f.label}</div>
-                                                                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.85rem', color: n ? scoreColor(n) : T.textFaint, letterSpacing: '0.1em' }}>
-                                                                            {'●'.repeat(n)}<span style={{ color: T.textFaint }}>{'○'.repeat(5 - n)}</span>
+                                                                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.85rem', fontWeight: '500', color: n ? scoreColor(n) : T.textFaint }}>
+                                                                            {n ? `${n}/${REVIEW_SCALE}` : '—'}
+                                                                        </div>
+                                                                        <div style={{ height: '3px', borderRadius: '2px', background: T.border, marginTop: '6px', overflow: 'hidden' }}>
+                                                                            <div style={{ width: `${(n / REVIEW_SCALE) * 100}%`, height: '100%', background: n ? scoreColor(n) : 'transparent' }} />
                                                                         </div>
                                                                     </div>
                                                                 );
@@ -7387,6 +7515,61 @@ export default function PortfolioTracker() {
                                                                 ))}
                                                             </div>
                                                         )}
+
+                                                        {/* After exit — revealed only once the review is saved */}
+                                                        {(() => {
+                                                            if (!t.exitDate || !(t.exitPrice > 0)) return null;
+                                                            const key = afterExitKey(t);
+                                                            const stored = rv.afterExit && rv.afterExit.key === key ? rv.afterExit : null;
+                                                            const live = afterExitCacheRef.current[key];
+                                                            const liveData = live?.status === 'ready' ? live.data : null;
+                                                            const final = !!(stored && stored.complete);
+                                                            const srcData = final ? stored : (liveData && liveData.status === 'ready' ? liveData : null);
+                                                            const marks = (srcData && srcData.marks) || (stored && stored.marks) || {};
+                                                            const complete = !!(srcData && srcData.complete);
+                                                            const hasMarks = AFTER_EXIT_MARKS.some(n => marks[n] != null);
+                                                            const split = !final && !!(liveData && liveData.splitSuspect);
+                                                            const pctColor = (v) => v == null ? T.textFaint : v > 0 ? T.amber : v < 0 ? T.green : T.textPrimary;
+                                                            const cells = [
+                                                                ...AFTER_EXIT_MARKS.map(n => ({ label: `${n} days`, v: marks[n] })),
+                                                                { label: complete ? 'Best after' : 'Best so far',   v: srcData ? srcData.best  : null },
+                                                                { label: complete ? 'Worst after' : 'Worst so far', v: srcData ? srcData.worst : null },
+                                                            ];
+                                                            let status = null;
+                                                            if (!final && !hasMarks) {
+                                                                if (live?.status === 'error') status = 'error';
+                                                                else if (liveData && liveData.status === 'pending') status = 'pending';
+                                                                else status = 'loading';
+                                                            }
+                                                            return (
+                                                                <div style={{ marginBottom: '14px' }}>
+                                                                    <div style={subLabel}>After exit <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: '500', color: T.textFaint }}>(vs your final exit at ${Number(t.exitPrice).toFixed(2)}; + means the price kept moving your trade's way after you left)</span></div>
+                                                                    {status === 'loading' && <div style={{ fontSize: '0.78rem', color: T.textFaint }}>Loading price history…</div>}
+                                                                    {status === 'pending' && <div style={{ fontSize: '0.78rem', color: T.textFaint }}>The first mark appears 5 trading days after your exit.</div>}
+                                                                    {status === 'error' && (
+                                                                        <div style={{ fontSize: '0.78rem', color: T.textFaint }}>
+                                                                            Price history unavailable ({live.error}).{' '}
+                                                                            <span onClick={() => { delete afterExitCacheRef.current[key]; setAfterExitTick(n => n + 1); }}
+                                                                                style={{ color: T.blue, cursor: 'pointer', fontWeight: '600' }}>Retry</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {status === null && (
+                                                                        <>
+                                                                            <div style={{ display: 'flex', border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden' }}>
+                                                                                {cells.map((c, i, arr) => (
+                                                                                    <div key={c.label} style={{ flex: 1, padding: '9px 12px', borderRight: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', background: T.panelBg }}>
+                                                                                        <div style={{ fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px', whiteSpace: 'nowrap' }}>{c.label}</div>
+                                                                                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.85rem', fontWeight: '500', color: pctColor(c.v), whiteSpace: 'nowrap' }}>{fmtAfterExitPct(c.v) || (c.label.includes('days') ? 'pending' : '—')}</div>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                            {split && <div style={{ marginTop: '6px', fontSize: '0.74rem', color: T.amber }}>A move over ±50% since your exit can mean a stock split. Check it; these numbers are not being saved.</div>}
+                                                                            {!split && !final && <div style={{ marginTop: '6px', fontSize: '0.72rem', color: T.textFaint }}>Marks lock in once 60 trading days have passed.</div>}
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
 
                                                         {/* Reflection */}
                                                         {textBlocks.map(b => (
