@@ -6922,6 +6922,7 @@ export default function PortfolioTracker() {
 
                 const purpleColor = isDark ? '#a78bfa' : '#7c3aed';
                 const purpleBg    = isDark ? 'rgba(167,139,250,0.12)' : 'rgba(124,58,237,0.09)';
+                const journalScrollbar = { scrollbarWidth: 'thin', scrollbarColor: isDark ? '#333333 transparent' : '#c5cad1 transparent' };
                 const purpleBorder= isDark ? 'rgba(167,139,250,0.25)' : 'rgba(124,58,237,0.2)';
 
                 return (<>
@@ -7020,7 +7021,7 @@ export default function PortfolioTracker() {
                                 </div>
 
                                 {/* Entry list */}
-                                <div style={{ overflowY: 'auto', flex: 1 }}>
+                                <div style={{ overflowY: 'auto', flex: 1, ...journalScrollbar }}>
                                     {filteredJournal.length === 0 ? (
                                         <div style={{ padding: '24px 14px', textAlign: 'center', color: T.textFaint, fontSize: '0.78rem' }}>
                                             {journalTrades.length === 0 ? 'No closed trades or notes yet' : 'No entries match'}
@@ -7065,7 +7066,7 @@ export default function PortfolioTracker() {
                             </div>
 
                             {/* ── Detail panel ── */}
-                            <div style={{ flex: 1, background: T.panelBg, overflowY: 'auto' }}>
+                            <div style={{ flex: 1, background: T.panelBg, overflowY: 'auto', ...journalScrollbar }}>
                                 {!activeEntry ? (
                                     <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textFaint, fontSize: '0.82rem' }}>
                                         Select an entry to read
