@@ -118,6 +118,7 @@ const REVIEW_EXIT_REASONS = [
     'Thesis Invalidated (Price Action)',
     'Sold at My Profit Target',
     'Time Stop / Stagnant Capital',
+    'Protecting Profit (Fear of Giveback)',
     'Panic / Impulsive Exit',
 ];
 const REVIEW_SCALE = 10;
