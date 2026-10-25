@@ -572,7 +572,7 @@ export default function JournalView(props) {
                                     const rv = t.review || null;
                                     const editing = journalReviewEditing === t.id;
                                     const labelStyle = { fontFamily: sans, fontSize: '0.75rem', fontWeight: '800', color: T.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' };
-                                    const subLabel = { fontFamily: sans, fontSize: '0.62rem', fontWeight: '700', color: isDark ? T.textMuted : T.textPrimary, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' };
+                                    const subLabel = { fontFamily: sans, fontSize: '0.68rem', fontWeight: '800', color: isDark ? T.textMuted : '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' };
                                     const cardStyle = { border: `1px solid ${T.border}`, borderRadius: '7px', background: T.surfaceBg, padding: '16px 18px' };
                                     const primaryBtn = { padding: '6px 18px', background: T.green, border: 'none', borderRadius: '5px', color: isDark ? '#000' : '#fff', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' };
                                     const ghostBtn = { padding: '6px 14px', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', color: T.textSecondary, fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' };
