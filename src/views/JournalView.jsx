@@ -712,7 +712,7 @@ export default function JournalView(props) {
                                                 </div>
 
                                                 {/* Plan */}
-                                                <div style={subLabel}>Plan <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: '500', color: T.textFaint }}>(optional: a price, an R multiple, a moving average, any condition)</span></div>
+                                                <div style={subLabel}>Plan</div>
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '18px' }}>
                                                     {[
                                                         { id: `jr-stop-${t.id}`,   label: 'Planned stop', val: rv?.plannedStop,   ph: 'e.g. $47.50 or below 50 MA' },
