@@ -16,6 +16,7 @@ export const REVIEW_MISTAKES = [
     'Ignored thesis',
     'Revenge trade',
     'No plan',
+    'Bad Entry',
 ];
 export const REVIEW_NONE_TAG = 'None (clean execution)';
 export const REVIEW_EXIT_REASONS = [
